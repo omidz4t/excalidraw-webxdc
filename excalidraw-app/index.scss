@@ -88,6 +88,33 @@
   }
 }
 
+.webxdc-propagation-indicator {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border: 1px solid var(--color-border-outline);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-warning);
+  color: var(--color-text-warning);
+  box-shadow: var(--shadow-island);
+  cursor: pointer;
+
+  &:hover {
+    filter: brightness(0.97);
+  }
+
+  &:active {
+    filter: brightness(0.94);
+  }
+}
+
 .plus-banner {
   display: flex;
   justify-content: center;

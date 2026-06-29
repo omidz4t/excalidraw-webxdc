@@ -349,7 +349,13 @@ export const applyElementOperations = (
           if (op.type === "delete") {
             yElements.delete(idYjsIndexMap[op.id], 1);
           } else {
-            yElements.delete(idYjsIndexMap[op.id], op.data.length);
+            const indices = op.data
+              .map((entry) => idYjsIndexMap[entry.id])
+              .filter((index) => index !== undefined)
+              .sort((a, b) => b - a);
+            for (const index of indices) {
+              yElements.delete(index, 1);
+            }
           }
           _updateYjsIndexMap();
           break;

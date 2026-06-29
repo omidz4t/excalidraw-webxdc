@@ -34,6 +34,7 @@ import {
 import {
   collabSyncStatusAtom,
   createWebxdcSyncBridge,
+  SendUpdateRejectedError,
 } from "./collab-status";
 
 import type { CollabSyncStatus } from "./collab-status";
@@ -137,11 +138,27 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       hint: "Loading chat history…",
     });
 
+    const markPropagationFailed = (error: SendUpdateRejectedError) => {
+      setStatus({
+        propagationFailed: true,
+        propagationError: error.message,
+        propagationFailureReason: error.reason,
+        hasPendingPropagation: true,
+      });
+    };
+
     const { webxdc, awaitHistoryReplay } = createWebxdcSyncBridge(hostWebxdc, {
       onSendUpdate: () => {
         sendUpdateSent += 1;
-        setStatus({ sendUpdateSent });
+        setStatus({
+          sendUpdateSent,
+          propagationFailed: false,
+          propagationError: "",
+          propagationFailureReason: "",
+          hasPendingPropagation: false,
+        });
       },
+      onSendUpdateFailed: markPropagationFailed,
       onReceiveUpdate: (serial) => {
         sendUpdateReceived += 1;
         setStatus({ sendUpdateReceived, lastSendUpdateSerial: serial });
@@ -151,6 +168,23 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         setStatus({ peerCount: realtime.getPeerCount() });
       },
     });
+
+    const syncToChatPeers = (provider: InstanceType<typeof WebxdcProvider>) => {
+      try {
+        provider.syncToChatPeers();
+      } catch (error) {
+        if (error instanceof SendUpdateRejectedError) {
+          markPropagationFailed(error);
+        } else {
+          markPropagationFailed(
+            new SendUpdateRejectedError(
+              error instanceof Error ? error.message : "sendUpdate failed",
+              "error",
+            ),
+          );
+        }
+      }
+    };
 
     const ydoc = new Y.Doc();
     const yElements = ydoc.getArray<Y.Map<unknown>>("elements");
@@ -224,6 +258,10 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       });
       providerRef.current = provider;
 
+      provider.on("sync", ({ hasQueued }: { hasQueued: boolean }) => {
+        setStatus({ hasPendingPropagation: hasQueued });
+      });
+
       setStatus({ hint: "Replaying chat history…" });
       await awaitHistoryReplay();
       if (cancelled) {
@@ -280,12 +318,12 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         pendingRealtimeYjs.length = 0;
 
         if (!realtime.sendDocumentUpdate(merged)) {
-          provider.syncToChatPeers();
+          syncToChatPeers(provider);
         }
       }, REALTIME_DOC_MS);
 
       const flushPersist = throttle(
-        () => provider.syncToChatPeers(),
+        () => syncToChatPeers(provider),
         PERSIST_FLUSH_MS,
         { leading: false, trailing: true },
       );
@@ -295,7 +333,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
           return;
         }
         // Images are too large for realtime — persist immediately
-        provider.syncToChatPeers();
+        syncToChatPeers(provider);
       });
 
       ydoc.on("updateV2", (_update, origin) => {
@@ -427,7 +465,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         realtime.leave();
         realtimeRef.current = null;
         clearInterval(provider.autosaveLoop);
-        provider.syncToChatPeers();
+        syncToChatPeers(provider);
         providerRef.current = null;
         appJotaiStore.set(collabAPIAtom, null);
         appJotaiStore.set(isCollaboratingAtom, false);

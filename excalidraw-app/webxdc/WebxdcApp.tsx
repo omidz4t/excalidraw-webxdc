@@ -10,6 +10,7 @@ import { Provider, useAtom, appJotaiStore } from "../app-jotai";
 import { isCollaboratingAtom } from "../collab/atoms";
 import WebxdcCollab from "./WebxdcCollab";
 import WebxdcMainMenu from "./WebxdcMainMenu";
+import WebxdcPropagationIndicator from "./WebxdcPropagationIndicator";
 import { webxdcPointerUpdateRef } from "./pointer-ref";
 import { useWebxdcAppTheme } from "./useWebxdcAppTheme";
 import {
@@ -56,6 +57,7 @@ const WebxdcWrapper = () => {
       className="excalidraw-app is-collaborating"
       onPointerDown={onPointerDown}
     >
+      <WebxdcPropagationIndicator />
       <Excalidraw
         initialData={initialStatePromiseRef.current.promise}
         isCollaborating={true}

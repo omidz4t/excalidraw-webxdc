@@ -1,8 +1,16 @@
 import { atom } from "jotai";
 
-import type { ReceivedStatusUpdate, Webxdc } from "@webxdc/types";
+import type {
+  ReceivedStatusUpdate,
+  SendingStatusUpdate,
+  Webxdc,
+} from "@webxdc/types";
 
 import type { JoinPayload } from "./webxdc-realtime-channel";
+
+const DEFAULT_SEND_UPDATE_MAX_BYTES = 128_000;
+
+export type PropagationFailureReason = "size" | "error";
 
 export type CollabSyncStatus = {
   buildId: string;
@@ -22,6 +30,10 @@ export type CollabSyncStatus = {
   initPhase: "loading" | "ready" | "error";
   hint: string;
   lastError: string;
+  propagationFailed: boolean;
+  propagationError: string;
+  propagationFailureReason: PropagationFailureReason | "";
+  hasPendingPropagation: boolean;
 };
 
 export const collabSyncStatusAtom = atom<CollabSyncStatus>({
@@ -42,7 +54,25 @@ export const collabSyncStatusAtom = atom<CollabSyncStatus>({
   initPhase: "loading",
   hint: "Connecting…",
   lastError: "",
+  propagationFailed: false,
+  propagationError: "",
+  propagationFailureReason: "",
+  hasPendingPropagation: false,
 });
+
+export const estimateSendUpdateBytes = (
+  update: SendingStatusUpdate<unknown>,
+): number => new TextEncoder().encode(JSON.stringify(update)).length;
+
+export class SendUpdateRejectedError extends Error {
+  readonly reason: PropagationFailureReason;
+
+  constructor(message: string, reason: PropagationFailureReason) {
+    super(message);
+    this.name = "SendUpdateRejectedError";
+    this.reason = reason;
+  }
+}
 
 type WebxdcHost = Webxdc<unknown>;
 
@@ -54,6 +84,7 @@ export const createWebxdcSyncBridge = (
   host: WebxdcHost,
   handlers: {
     onSendUpdate: () => void;
+    onSendUpdateFailed: (error: SendUpdateRejectedError) => void;
     onReceiveUpdate: (serial: number) => void;
     onJoin: (payload: JoinPayload) => void;
   },
@@ -86,7 +117,28 @@ export const createWebxdcSyncBridge = (
     sendUpdateInterval: host.sendUpdateInterval,
     sendUpdateMaxSize: host.sendUpdateMaxSize,
     sendUpdate(update, _description) {
-      host.sendUpdate(update, "");
+      const maxBytes =
+        host.sendUpdateMaxSize ?? DEFAULT_SEND_UPDATE_MAX_BYTES;
+      const payloadBytes = estimateSendUpdateBytes(update);
+      if (payloadBytes > maxBytes) {
+        const error = new SendUpdateRejectedError(
+          `Update is too large to send (${payloadBytes} bytes, limit ${maxBytes}).`,
+          "size",
+        );
+        handlers.onSendUpdateFailed(error);
+        throw error;
+      }
+
+      try {
+        host.sendUpdate(update, "");
+      } catch (cause) {
+        const message =
+          cause instanceof Error ? cause.message : "sendUpdate failed";
+        const error = new SendUpdateRejectedError(message, "error");
+        handlers.onSendUpdateFailed(error);
+        throw error;
+      }
+
       handlers.onSendUpdate();
     },
     setUpdateListener(cb, serial) {

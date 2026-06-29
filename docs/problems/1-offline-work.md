@@ -1,8 +1,8 @@
 # Offline Work
 
 --- 
-STATUS: NOT FIXED
----  
+STATUS: FIXED
+---
 
 
 The application must work offline as well. 
