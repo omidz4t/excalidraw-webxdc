@@ -56,6 +56,16 @@ export default defineConfig(({ mode, command }) => {
           replacement: path.resolve(__dirname, "../packages/common/src/$1"),
         },
         {
+          find: path.resolve(
+            __dirname,
+            "../packages/element/src/embeddable.ts",
+          ),
+          replacement: path.resolve(
+            __dirname,
+            "./webxdc/stubs/embed-stub.ts",
+          ),
+        },
+        {
           find: /^@excalidraw\/element$/,
           replacement: path.resolve(
             __dirname,
@@ -110,45 +120,38 @@ export default defineConfig(({ mode, command }) => {
             "../packages/laser-pointer/src/index.ts",
           ),
         },
+        {
+          find: "firebase/app",
+          replacement: path.resolve(
+            __dirname,
+            "./webxdc/stubs/firebase-stub.ts",
+          ),
+        },
+        {
+          find: "firebase/firestore",
+          replacement: path.resolve(
+            __dirname,
+            "./webxdc/stubs/firebase-stub.ts",
+          ),
+        },
+        {
+          find: "firebase/storage",
+          replacement: path.resolve(
+            __dirname,
+            "./webxdc/stubs/firebase-stub.ts",
+          ),
+        },
+        {
+          find: "socket.io-client",
+          replacement: path.resolve(
+            __dirname,
+            "./webxdc/stubs/empty-module.ts",
+          ),
+        },
         ...(isWebxdcBuild
           ? [
               {
                 find: "@excalidraw/mermaid-to-excalidraw",
-                replacement: path.resolve(
-                  __dirname,
-                  "./webxdc/stubs/empty-module.ts",
-                ),
-              },
-              {
-                find: "@sentry/browser",
-                replacement: path.resolve(
-                  __dirname,
-                  "./webxdc/stubs/sentry-stub.ts",
-                ),
-              },
-              {
-                find: "firebase/app",
-                replacement: path.resolve(
-                  __dirname,
-                  "./webxdc/stubs/firebase-stub.ts",
-                ),
-              },
-              {
-                find: "firebase/firestore",
-                replacement: path.resolve(
-                  __dirname,
-                  "./webxdc/stubs/firebase-stub.ts",
-                ),
-              },
-              {
-                find: "firebase/storage",
-                replacement: path.resolve(
-                  __dirname,
-                  "./webxdc/stubs/firebase-stub.ts",
-                ),
-              },
-              {
-                find: "socket.io-client",
                 replacement: path.resolve(
                   __dirname,
                   "./webxdc/stubs/empty-module.ts",
@@ -204,17 +207,20 @@ export default defineConfig(({ mode, command }) => {
             minifyWhitespace: true,
           }
         : undefined,
-    define: isWebxdcBuild
-      ? {
-          "import.meta.env.VITE_APP_WEBXDC": JSON.stringify("true"),
-          "import.meta.env.VITE_WEBXDC_VERSION": JSON.stringify(webxdcVersion),
-          "import.meta.env.VITE_APP_DISABLE_SENTRY": JSON.stringify("true"),
-          "import.meta.env.VITE_APP_ENABLE_TRACKING": JSON.stringify("false"),
-          "import.meta.env.VITE_APP_ENABLE_PWA": JSON.stringify("false"),
-          "import.meta.env.VITE_APP_DISABLE_PREVENT_UNLOAD":
-            JSON.stringify("true"),
-        }
-      : undefined,
+    define: {
+      "import.meta.env.VITE_APP_DISABLE_SENTRY": JSON.stringify("true"),
+      "import.meta.env.VITE_APP_ENABLE_TRACKING": JSON.stringify("false"),
+      ...(isWebxdcBuild
+        ? {
+            "import.meta.env.VITE_APP_WEBXDC": JSON.stringify("true"),
+            "import.meta.env.VITE_WEBXDC_VERSION":
+              JSON.stringify(webxdcVersion),
+            "import.meta.env.VITE_APP_ENABLE_PWA": JSON.stringify("false"),
+            "import.meta.env.VITE_APP_DISABLE_PREVENT_UNLOAD":
+              JSON.stringify("true"),
+          }
+        : {}),
+    },
     build: {
       outDir: isWebxdcBuild ? "build-webxdc" : "build",
       cssCodeSplit: !isWebxdcBuild,

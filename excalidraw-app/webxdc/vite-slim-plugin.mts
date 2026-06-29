@@ -4,13 +4,24 @@ import { PurgeCSS } from "purgecss";
 import type { OutputChunk, OutputAsset } from "rollup";
 import type { Plugin } from "vite";
 
+import { applyOfflineTransforms } from "./offline-transforms.mts";
+
 const STUBS_DIR = path.resolve(__dirname, "./stubs");
+
+/** Stubs for features that require network access — always applied. */
+const OFFLINE_STUBS: Array<{ match: RegExp; stub: string }> = [
+  { match: /LibraryMenu$/, stub: "library-menu-stub.tsx" },
+  { match: /PublishLibrary$/, stub: "null-component.tsx" },
+  { match: /LibraryMenuBrowseButton$/, stub: "null-component.tsx" },
+  { match: /\/analytics$/, stub: "analytics-stub.ts" },
+  { match: /HelpDialog$/, stub: "null-component.tsx" },
+  { match: /element\/src\/embeddable/, stub: "embed-stub.ts" },
+];
 
 const SOURCE_STUBS: Array<{ match: RegExp; stub: string }> = [
   { match: /(^|\/)charts$/, stub: "charts-stub.ts" },
   { match: /TTDDialog/, stub: "ttd-dialog-stub.tsx" },
   { match: /PasteChartDialog$/, stub: "paste-chart-dialog-stub.tsx" },
-  { match: /HelpDialog$/, stub: "null-component.tsx" },
   { match: /ImageExportDialog$/, stub: "null-component.tsx" },
   { match: /JSONExportDialog$/, stub: "null-component.tsx" },
   { match: /\/Stats$/, stub: "null-component.tsx" },
@@ -19,8 +30,6 @@ const SOURCE_STUBS: Array<{ match: RegExp; stub: string }> = [
   { match: /laserTrails$/, stub: "laser-trails-stub.ts" },
   { match: /DiagramToCodePlugin/, stub: "null-component.tsx" },
   { match: /DefaultSidebar$/, stub: "default-sidebar-stub.tsx" },
-  { match: /LibraryMenu$/, stub: "library-menu-stub.tsx" },
-  { match: /PublishLibrary$/, stub: "null-component.tsx" },
   { match: /ShareableLinkDialog$/, stub: "null-component.tsx" },
   { match: /FollowMode\/FollowMode$/, stub: "follow-mode-stub.tsx" },
   {
@@ -28,7 +37,6 @@ const SOURCE_STUBS: Array<{ match: RegExp; stub: string }> = [
     stub: "live-collaboration-stub.tsx",
   },
   { match: /LaserPointerButton$/, stub: "null-component.tsx" },
-  { match: /\/analytics$/, stub: "analytics-stub.ts" },
   { match: /subset\/subset-main$/, stub: "subset-main-stub.ts" },
   { match: /subset\/subset-shared\.chunk$/, stub: "empty-module.ts" },
   { match: /subset\/subset-worker\.chunk$/, stub: "empty-module.ts" },
@@ -311,6 +319,11 @@ export function webxdcSlimPlugin(enabled: boolean): Plugin {
     name: "webxdc-slim",
     enforce: "pre",
     resolveId(source) {
+      const offlineStub = OFFLINE_STUBS.find(({ match }) => match.test(source));
+      if (offlineStub) {
+        return path.resolve(STUBS_DIR, offlineStub.stub);
+      }
+
       if (!enabled) {
         return null;
       }
@@ -324,8 +337,13 @@ export function webxdcSlimPlugin(enabled: boolean): Plugin {
       return null;
     },
     transform(code, id) {
+      const offline = applyOfflineTransforms(code, id);
+      if (offline) {
+        code = offline.code;
+      }
+
       if (!enabled) {
-        return null;
+        return offline ? { code, map: null } : null;
       }
 
       if (id.endsWith(".scss") && shouldStripScss(id)) {
@@ -368,7 +386,8 @@ export function webxdcSlimPlugin(enabled: boolean): Plugin {
       }
 
       if (id.endsWith("/components/App.tsx")) {
-        let next = code.replace(
+        let next = offline?.code ?? code;
+        next = next.replace(
           /if \(!isPlainPaste && isMaybeMermaidDefinition\(data\.text\)\) \{[\s\S]*?\n {6}return;\n {4}\}/,
           "if (false) { /* mermaid disabled for webxdc */ }",
         );
@@ -459,7 +478,7 @@ export function webxdcSlimPlugin(enabled: boolean): Plugin {
         };
       }
 
-      return null;
+      return offline ? { code, map: null } : null;
     },
     async generateBundle(_options, bundle) {
       if (!enabled) {
