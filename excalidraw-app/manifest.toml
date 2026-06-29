@@ -1,0 +1,5 @@
+name = "Excalidraw"
+description = "Collaborative whiteboard for Delta Chat, synced with Yjs."
+version = "1.0.4"
+author = "Delta Exil"
+icon = "icon.jpg"

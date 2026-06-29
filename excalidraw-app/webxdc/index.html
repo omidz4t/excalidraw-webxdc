@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Excalidraw</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover, shrink-to-fit=no"
+    />
+    <meta name="theme-color" content="#121212" />
+    <script>
+      // Self-hosted fonts only — webxdc CSP blocks external font-src
+      window.EXCALIDRAW_ASSET_PATH = "./";
+      try {
+        const theme = window.localStorage.getItem("excalidraw-theme") || "light";
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      } catch (e) {
+        // ignore
+      }
+    </script>
+    <style>
+      html.dark {
+        background-color: #121212;
+        color: #fff;
+      }
+      body,
+      html,
+      #root {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+      }
+    </style>
+    <link rel="icon" type="image/jpeg" href="/icon.jpg" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- Required: Delta Chat injects window.webxdc when it sees this tag (realFinger pattern).
+         webxdc.js is NOT bundled in the .xdc — the host provides it at runtime. -->
+    <script src="webxdc.js"></script>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>

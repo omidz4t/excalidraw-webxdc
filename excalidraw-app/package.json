@@ -1,0 +1,70 @@
+{
+  "name": "excalidraw-app",
+  "version": "1.0.0",
+  "private": true,
+  "homepage": ".",
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not ie <= 11",
+      "not op_mini all",
+      "not safari < 12",
+      "not kaios <= 2.5",
+      "not edge < 79",
+      "not chrome < 70",
+      "not and_uc < 13",
+      "not samsung < 10"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@excalidraw/random-username": "1.0.0",
+    "@sentry/browser": "9.0.1",
+    "@webxdc/types": "^2.1.2",
+    "callsites": "4.2.0",
+    "firebase": "11.3.1",
+    "i18next-browser-languagedetector": "6.1.4",
+    "idb-keyval": "6.0.3",
+    "js-base64": "^3.7.8",
+    "jotai": "2.11.0",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "socket.io-client": "4.7.2",
+    "uqr": "0.1.2",
+    "vite-plugin-html": "3.2.2",
+    "y-webxdc": "^1.1.1",
+    "yjs": "^13.6.27"
+  },
+  "prettier": "@excalidraw/prettier-config",
+  "scripts": {
+    "build-node": "node ./scripts/build-node.js",
+    "build:app": "bunx cross-env VITE_APP_GIT_SHA=$VERCEL_GIT_COMMIT_SHA bunx cross-env VITE_APP_ENABLE_TRACKING=true vite build",
+    "build:version": "node ../scripts/build-version.js",
+    "build": "bun run build:app && bun run build:version",
+    "start": "bun install && vite",
+    "start:production": "bun run build && bun run serve",
+    "serve": "npx http-server build -a localhost -p 5001 -o",
+    "build:preview": "bun run build && vite preview --port 5000",
+    "build:webxdc": "bunx cross-env VITE_APP_WEBXDC=true vite build",
+    "start:webxdc": "bun run dev:webxdc",
+    "dev:webxdc": "concurrently -k -n vite,webxdc \"bun run dev:webxdc:vite\" \"bun run dev:webxdc:tool:delayed\"",
+    "dev:webxdc:vite": "bunx cross-env VITE_APP_WEBXDC=true vite --port ${VITE_DEV_PORT:-3000} --strictPort --no-open",
+    "dev:webxdc:tool:delayed": "bash -c 'echo \"Waiting for Vite at http://127.0.0.1:${VITE_DEV_PORT:-3000}/webxdc/ ...\"; for i in $(seq 1 90); do if curl -sf -H \"accept: text/html\" \"http://127.0.0.1:${VITE_DEV_PORT:-3000}/webxdc/\" >/dev/null; then exec webxdc-dev run --port ${WEBXDC_DEV_PORT:-7100} http://localhost:${VITE_DEV_PORT:-3000}/webxdc/; fi; sleep 1; done; echo \"Timed out waiting for Vite\"; exit 1'",
+    "dev:webxdc:tool": "webxdc-dev run --port ${WEBXDC_DEV_PORT:-7100} http://localhost:${VITE_DEV_PORT:-3000}/webxdc/"
+  },
+  "devDependencies": {
+    "cross-env": "7.0.3",
+    "@webxdc/vite-plugins": "^1.4.0",
+    "@webxdc/webxdc-dev": "^0.21.0",
+    "concurrently": "^9.2.1",
+    "vite-plugin-sitemap": "0.7.1"
+  }
+}
