@@ -1,0 +1,50 @@
+{
+  "branches": [
+    "main"
+  ],
+  "tagFormat": "v${version}",
+  "plugins": [
+    "@semantic-release/commit-analyzer",
+    "@semantic-release/release-notes-generator",
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md"
+      }
+    ],
+    [
+      "@semantic-release/exec",
+      {
+        "prepareCmd": "echo ${nextRelease.version} > .version && npm version ${nextRelease.version} --allow-same-version --no-git-tag-version",
+        "publishCmd": "bash scripts/package-release.sh"
+      }
+    ],
+    [
+      "@semantic-release/github",
+      {
+        "assets": [
+          {
+            "path": "dist/excalidraw_v*.xdc",
+            "label": "Excalidraw WebXDC (${nextRelease.version})"
+          },
+          {
+            "path": "dist/excalidraw_v*.zip",
+            "label": "Excalidraw WebXDC Zip (${nextRelease.version})"
+          }
+        ]
+      }
+    ],
+    [
+      "@semantic-release/git",
+      {
+        "assets": [
+          "package.json",
+          "excalidraw-app/manifest.toml",
+          "CHANGELOG.md",
+          ".version"
+        ],
+        "message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+      }
+    ]
+  ]
+}

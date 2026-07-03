@@ -27,6 +27,7 @@ dev-dist
 html
 meta*.json
 .claude
+/context/
 
 # WebXDC build output
 excalidraw-app/build-webxdc/
