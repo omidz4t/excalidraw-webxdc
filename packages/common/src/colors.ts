@@ -331,6 +331,15 @@ export const isColorDark = (color: string, threshold = 160): boolean => {
   return calculateContrast(r, g, b) < threshold;
 };
 
+/** Darken a valid color by the given percentage (0–100). */
+export const getShadedColor = (color: string, darkenPercent: number): string => {
+  const tc = tinycolor(color);
+  if (!tc.isValid()) {
+    return color;
+  }
+  return tc.darken(darkenPercent).toHexString();
+};
+
 // -----------------------------------------------------------------------------
 // normalization
 // -----------------------------------------------------------------------------

@@ -36,6 +36,8 @@ import {
   MagicIcon,
 } from "./icons";
 
+import { StickyNoteStack } from "./StickyNoteStack";
+
 import "./ToolIcon.scss";
 import "./MobileToolBar.scss";
 
@@ -341,6 +343,8 @@ export const MobileToolBar = ({
           onChange={() => handleToolChange("text")}
         />
       )}
+
+      <StickyNoteStack app={app} />
 
       {/* Image */}
       {showImageToolOutside && (

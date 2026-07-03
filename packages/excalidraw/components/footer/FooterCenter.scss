@@ -5,6 +5,7 @@
   width: 100%;
   justify-content: flex-start;
   margin-inline-end: 0.6rem;
+  align-items: center;
 
   & > * {
     pointer-events: var(--ui-pointerEvents);

@@ -79,6 +79,7 @@ export {
 } from "./actionClipboard";
 
 export { actionToggleGridMode } from "./actionToggleGridMode";
+export { actionToggleMinimap } from "./actionToggleMinimap";
 export { actionToggleZenMode } from "./actionToggleZenMode";
 export { actionToggleObjectsSnapMode } from "./actionToggleObjectsSnapMode";
 export { actionToggleArrowBinding } from "./actionToggleArrowBinding";

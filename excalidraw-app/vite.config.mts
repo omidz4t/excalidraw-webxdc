@@ -322,7 +322,7 @@ export default defineConfig(({ mode, command }) => {
               generateRobotsTxt: false,
             }),
           ]),
-      woff2BrowserPlugin(),
+      ...(isWebxdcBuild ? [] : [woff2BrowserPlugin()]),
       react(),
       ...(isWebxdcBuild
         ? []

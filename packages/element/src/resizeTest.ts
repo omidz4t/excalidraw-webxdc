@@ -16,6 +16,7 @@ import type { AppState, Zoom } from "@excalidraw/excalidraw/types";
 import type { Bounds } from "@excalidraw/common";
 
 import { getElementAbsoluteCoords } from "./bounds";
+import { isStickyNoteElement } from "./stickyNote";
 import {
   getTransformHandlesFromCoords,
   getTransformHandles,
@@ -89,7 +90,7 @@ export const resizeTest = <Point extends GlobalPoint | LocalPoint>(
     return filter[0] as TransformHandleType;
   }
 
-  if (canResizeFromSides(editorInterface)) {
+  if (canResizeFromSides(editorInterface) && !isStickyNoteElement(element)) {
     const [x1, y1, x2, y2, cx, cy] = getElementAbsoluteCoords(
       element,
       elementsMap,

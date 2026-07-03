@@ -5,7 +5,13 @@ import type {
 import { CaptureUpdateAction } from "@excalidraw/element";
 import * as Y from "yjs";
 
-import { areElementsSame, debounce, yjsToExcalidraw } from "./helpers";
+import {
+  areElementsSame,
+  debounce,
+  getYjsElementEntry,
+  lastKnownElementsFromYArray,
+  yjsToExcalidraw,
+} from "./helpers";
 import {
   applyAssetOperations,
   applyElementOperations,
@@ -132,7 +138,8 @@ export class ExcalidrawBinding {
       const changedElementIds = new Set(
         event.flatMap((e) => {
           if (e instanceof Y.YMapEvent) {
-            return [e.target.get("el").id as string];
+            const el = getYjsElementEntry(e.target as Y.Map<unknown>);
+            return el ? [el.id] : [];
           }
           return [];
         }),
@@ -149,19 +156,11 @@ export class ExcalidrawBinding {
         );
       });
 
-      this.lastKnownElements = this.yElements
-        .toArray()
-        .map((x) => ({
-          id: x.get("el").id,
-          version: x.get("el").version,
-          pos: x.get("pos"),
-        }))
-        .sort((a, b) => {
-          const key1 = a.pos;
-          const key2 = b.pos;
-          return key1 > key2 ? 1 : key1 < key2 ? -1 : 0;
-        });
-      this.api.updateScene({ elements });
+      this.lastKnownElements = lastKnownElementsFromYArray(this.yElements);
+      this.api.updateScene({
+        elements,
+        captureUpdate: CaptureUpdateAction.NEVER,
+      });
     };
     this.yElements.observeDeep(_remoteElementsChangeHandler);
     this.subscriptions.push(() =>
@@ -191,18 +190,7 @@ export class ExcalidrawBinding {
     }
 
     const initialValue = yjsToExcalidraw(this.yElements);
-    this.lastKnownElements = this.yElements
-      .toArray()
-      .map((x) => ({
-        id: x.get("el").id,
-        version: x.get("el").version,
-        pos: x.get("pos"),
-      }))
-      .sort((a, b) => {
-        const key1 = a.pos;
-        const key2 = b.pos;
-        return key1 > key2 ? 1 : key1 < key2 ? -1 : 0;
-      });
+    this.lastKnownElements = lastKnownElementsFromYArray(this.yElements);
     const remoteSceneSettings = sceneSettingsFromYMap(this.ySceneSettings);
     if (remoteSceneSettings) {
       this.lastKnownSceneSettings = remoteSceneSettings;

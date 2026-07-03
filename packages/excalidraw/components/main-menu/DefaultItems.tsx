@@ -11,6 +11,7 @@ import {
   actionShortcuts,
   actionToggleArrowBinding,
   actionToggleGridMode,
+  actionToggleMinimap,
   actionToggleMidpointSnapping,
   actionToggleObjectsSnapMode,
   actionToggleSearchMenu,
@@ -544,6 +545,24 @@ export const PreferencesToggleGridModeItem = () => {
   );
 };
 
+export const PreferencesToggleMinimapItem = () => {
+  const { t } = useI18n();
+  const actionManager = useExcalidrawActionManager();
+  const appState = useUIAppState();
+
+  return (
+    <DropdownMenuItemCheckbox
+      checked={appState.minimapEnabled}
+      onSelect={(event) => {
+        actionManager.executeAction(actionToggleMinimap);
+        event.preventDefault();
+      }}
+    >
+      {t("labels.toggleMinimap")}
+    </DropdownMenuItemCheckbox>
+  );
+};
+
 export const PreferencesToggleZenModeItem = () => {
   const { t } = useI18n();
   const actionManager = useExcalidrawActionManager();
@@ -637,6 +656,7 @@ Preferences.ToggleSnapMode = PreferencesToggleSnapModeItem;
 Preferences.ToggleArrowBinding = PreferencesToggleArrowBindingItem;
 Preferences.ToggleMidpointSnapping = PreferencesToggleMidpointSnappingItem;
 Preferences.ToggleGridMode = PreferencesToggleGridModeItem;
+Preferences.ToggleMinimap = PreferencesToggleMinimapItem;
 Preferences.ToggleZenMode = PreferencesToggleZenModeItem;
 Preferences.ToggleViewMode = PreferencesToggleViewModeItem;
 Preferences.ToggleElementProperties = PreferencesToggleElementPropertiesItem;

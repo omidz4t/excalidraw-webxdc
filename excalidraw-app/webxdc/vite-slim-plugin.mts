@@ -129,8 +129,29 @@ const WEBXDC_FONTS_CSS = `/* webxdc: self-hosted UI fonts */
 @font-face {
   font-family: "Assistant";
   src: url(../fonts/Assistant/Assistant-Regular.woff2) format("woff2");
-  font-weight: 400 700;
-  style: normal;
+  font-weight: 400;
+  font-style: normal;
+  display: swap;
+}
+@font-face {
+  font-family: "Assistant";
+  src: url(../fonts/Assistant/Assistant-Medium.woff2) format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  display: swap;
+}
+@font-face {
+  font-family: "Assistant";
+  src: url(../fonts/Assistant/Assistant-SemiBold.woff2) format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  display: swap;
+}
+@font-face {
+  font-family: "Assistant";
+  src: url(../fonts/Assistant/Assistant-Bold.woff2) format("woff2");
+  font-weight: 700;
+  font-style: normal;
   display: swap;
 }`;
 
@@ -160,6 +181,9 @@ const EXCLUDED_FILE_NAMES = new Set([
 
 const KEPT_FONT_FILES = new Set([
   "Assistant-Regular.woff2",
+  "Assistant-Medium.woff2",
+  "Assistant-SemiBold.woff2",
+  "Assistant-Bold.woff2",
   "Virgil-Regular.woff2",
 ]);
 
@@ -448,11 +472,6 @@ export function webxdcSlimPlugin(enabled: boolean): Plugin {
         next = next.replace(
           /if \(!this\.state\.showWelcomeScreen && !elements\.length\) \{\s*this\.setState\(\{ showWelcomeScreen: true \}\);\s*\}/,
           "/* webxdc: welcome screen disabled */",
-        );
-
-        next = next.replace(
-          /<FollowMode[\s\S]*?\/>/,
-          "{/* webxdc: follow mode disabled */}",
         );
 
         return {

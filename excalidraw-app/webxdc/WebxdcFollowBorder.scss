@@ -1,0 +1,60 @@
+.excalidraw-app {
+  .webxdc-follow-border {
+    position: absolute;
+    inset: 0;
+    box-sizing: border-box;
+    pointer-events: none;
+    z-index: 10001;
+    border-style: solid;
+    border-width: 3px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+
+    &__badge {
+      color: #1b1b1f;
+      padding: 0.3rem 0.55rem;
+      margin-bottom: 0.5rem;
+      border-radius: 0.5rem;
+      pointer-events: all;
+      font-size: 0.75rem;
+      font-weight: 600;
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+      max-width: calc(100% - 1rem);
+
+      &__label {
+        display: flex;
+        white-space: pre-wrap;
+        line-height: 1.1;
+        min-width: 0;
+      }
+
+      &__username {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 9rem;
+      }
+    }
+
+    &__disconnect-btn {
+      all: unset;
+      cursor: pointer;
+      border-radius: 0.25rem;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0 0.15rem;
+      flex-shrink: 0;
+      opacity: 0.85;
+
+      &:hover {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.08);
+      }
+    }
+  }
+}

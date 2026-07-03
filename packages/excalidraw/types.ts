@@ -432,6 +432,7 @@ export interface AppState {
   gridSize: number;
   gridStep: number;
   gridModeEnabled: boolean;
+  minimapEnabled: boolean;
   viewModeEnabled: boolean;
 
   /** top-most selected groups (i.e. does not include nested groups) */
@@ -836,6 +837,7 @@ export type AppClassProperties = {
   setActiveTool: App["setActiveTool"];
   setOpenDialog: App["setOpenDialog"];
   insertEmbeddableElement: App["insertEmbeddableElement"];
+  insertStickyNote: App["insertStickyNote"];
   onMagicframeToolSelect: App["onMagicframeToolSelect"];
   getName: App["getName"];
   dismissLinearEditor: App["dismissLinearEditor"];
@@ -975,6 +977,9 @@ export interface ExcalidrawImperativeAPI {
   refresh: InstanceType<typeof App>["refresh"];
   setToast: InstanceType<typeof App>["setToast"];
   addFiles: (data: BinaryFileData[]) => void;
+  addElementsFromPasteOrLibrary: InstanceType<
+    typeof App
+  >["addElementsFromPasteOrLibrary"];
   id: string;
   setActiveTool: InstanceType<typeof App>["setActiveTool"];
   setCursor: InstanceType<typeof App>["setCursor"];

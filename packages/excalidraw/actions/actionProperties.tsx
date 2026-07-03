@@ -63,7 +63,7 @@ import {
   toggleLinePolygonState,
 } from "@excalidraw/element";
 
-import { deriveStylesPanelMode } from "@excalidraw/common";
+import { resolveStylesPanelMode } from "../utils/stylesPanelMode";
 
 import type { LocalPoint, Radians } from "@excalidraw/math";
 
@@ -163,7 +163,7 @@ import type { AppClassProperties, AppState, Primitive } from "../types";
 const FONT_SIZE_RELATIVE_INCREASE_STEP = 0.1;
 
 const getStylesPanelInfo = (app: AppClassProperties) => {
-  const stylesPanelMode = deriveStylesPanelMode(app.editorInterface);
+  const stylesPanelMode = resolveStylesPanelMode(app.editorInterface);
   return {
     stylesPanelMode,
     isCompact: stylesPanelMode !== "full",

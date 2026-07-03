@@ -99,7 +99,6 @@ import {
   getFeatureFlag,
   createUserAgentDescriptor,
   getFormFactor,
-  deriveStylesPanelMode,
   isIOS,
   isBrave,
   isSafari,
@@ -143,6 +142,7 @@ import {
   isBoundToContainer,
   isFrameLikeElement,
   isImageElement,
+  isStickyNoteElement,
   isEmbeddableElement,
   isInitializedImageElement,
   isLinearElement,
@@ -345,6 +345,11 @@ import { ActionManager } from "../actions/manager";
 import { actions } from "../actions/register";
 import { getShortcutFromShortcutName } from "../actions/shortcuts";
 import { trackEvent } from "../analytics";
+import { resolveStylesPanelMode } from "../utils/stylesPanelMode";
+import {
+  createStickyNoteElements,
+  getStickyNoteDimensions,
+} from "../utils/stickyNote";
 import {
   getDefaultAppState,
   isEraserActive,
@@ -572,7 +577,7 @@ export const useAppProps = () => useContext(AppPropsContext);
 export const useEditorInterface = () =>
   useContext<EditorInterface>(EditorInterfaceContext);
 export const useStylesPanelMode = () =>
-  deriveStylesPanelMode(useEditorInterface());
+  resolveStylesPanelMode(useEditorInterface());
 export const useExcalidrawContainer = () =>
   useContext(ExcalidrawContainerContext);
 export const useExcalidrawElements = () =>
@@ -628,7 +633,7 @@ class App extends React.Component<AppProps, AppState> {
   unmounted: boolean = false;
   actionManager: ActionManager;
   editorInterface: EditorInterface = editorInterfaceContextInitialValue;
-  private stylesPanelMode: StylesPanelMode = deriveStylesPanelMode(
+  private stylesPanelMode: StylesPanelMode = resolveStylesPanelMode(
     editorInterfaceContextInitialValue,
   );
 
@@ -752,6 +757,7 @@ class App extends React.Component<AppProps, AppState> {
       mutateElement: this.mutateElement,
       updateLibrary: this.library.updateLibrary,
       addFiles: this.addFiles,
+      addElementsFromPasteOrLibrary: this.addElementsFromPasteOrLibrary,
       resetScene: this.resetScene,
       getSceneElementsIncludingDeleted: this.getSceneElementsIncludingDeleted,
       getSceneElementsMapIncludingDeleted:
@@ -816,7 +822,7 @@ class App extends React.Component<AppProps, AppState> {
     };
 
     this.refreshEditorInterface();
-    this.stylesPanelMode = deriveStylesPanelMode(this.editorInterface);
+    this.stylesPanelMode = resolveStylesPanelMode(this.editorInterface);
 
     this.id = nanoid();
     this.library = new Library(this);
@@ -3057,7 +3063,7 @@ class App extends React.Component<AppProps, AppState> {
   };
 
   private reconcileStylesPanelMode = (nextEditorInterface: EditorInterface) => {
-    const nextStylesPanelMode = deriveStylesPanelMode(nextEditorInterface);
+    const nextStylesPanelMode = resolveStylesPanelMode(nextEditorInterface);
     if (nextStylesPanelMode === this.stylesPanelMode) {
       return;
     }
@@ -9057,6 +9063,100 @@ class App extends React.Component<AppProps, AppState> {
     return element;
   };
 
+  public insertStickyNote = ({
+    sceneX,
+    sceneY,
+    aspect = 1,
+    startEditing = true,
+  }: {
+    sceneX: number;
+    sceneY: number;
+    aspect?: 1 | 2;
+    startEditing?: boolean;
+  }) => {
+    const [gridX, gridY] = getGridPoint(
+      sceneX,
+      sceneY,
+      this.lastPointerDownEvent?.[KEYS.CTRL_OR_CMD]
+        ? null
+        : this.getEffectiveGridSize(),
+    );
+
+    const { width: stickyNoteWidth, height: stickyNoteHeight } =
+      getStickyNoteDimensions(aspect);
+
+    let [container, text] = createStickyNoteElements(
+      gridX - stickyNoteWidth / 2,
+      gridY - stickyNoteHeight / 2,
+      aspect,
+    );
+
+    const topLayerFrame = this.getTopLayerFrameAtSceneCoords({
+      x: gridX,
+      y: gridY,
+    });
+
+    if (topLayerFrame) {
+      const frameId = topLayerFrame.id;
+      if (isEligibleFrameChildType(container.type)) {
+        container = newElementWith(container, { frameId });
+      }
+      if (isEligibleFrameChildType(text.type)) {
+        text = newElementWith(text, { frameId });
+      }
+    }
+
+    this.insertNewElements([container, text]);
+
+    if (topLayerFrame) {
+      const eligibleElements = filterElementsEligibleAsFrameChildren(
+        [container, text],
+        topLayerFrame,
+      );
+      if (eligibleElements.length) {
+        this.scene.replaceAllElements(
+          addElementsToFrame(
+            this.scene.getElementsIncludingDeleted(),
+            eligibleElements,
+            topLayerFrame,
+          ),
+        );
+      }
+    }
+
+    redrawTextBoundingBox(text, container, this.scene);
+
+    // bound-text autogrow must not change sticky note dimensions
+    this.scene.mutateElement(container, {
+      width: stickyNoteWidth,
+      height: stickyNoteHeight,
+    });
+
+    this.store.scheduleCapture();
+    this.setState({
+      selectedElementIds: { [container.id]: true },
+      activeTool: updateActiveTool(this.state, {
+        type: this.state.preferredSelectionTool.type,
+      }),
+    });
+
+    if (startEditing) {
+      requestAnimationFrame(() => {
+        const updatedContainer = this.scene.getNonDeletedElement(container.id);
+        if (updatedContainer && isTextBindableContainer(updatedContainer)) {
+          this.startTextEditing({
+            sceneX: updatedContainer.x + updatedContainer.width / 2,
+            sceneY: updatedContainer.y + updatedContainer.height / 2,
+            container: updatedContainer,
+            autoEdit: true,
+          });
+        }
+      });
+    }
+
+    return container;
+  };
+
   private newImagePlaceholder = ({
     sceneX,
     sceneY,
@@ -12573,7 +12673,10 @@ class App extends React.Component<AppProps, AppState> {
         this.scene,
         shouldRotateWithDiscreteAngle(event),
         shouldResizeFromCenter(event),
-        selectedElements.some((element) => isImageElement(element))
+        selectedElements.length === 1 &&
+          isStickyNoteElement(selectedElements[0])
+          ? true
+          : selectedElements.some((element) => isImageElement(element))
           ? !shouldMaintainAspectRatio(event)
           : shouldMaintainAspectRatio(event),
         resizeX,

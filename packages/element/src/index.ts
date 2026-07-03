@@ -89,6 +89,7 @@ export * from "./shape";
 export * from "./showSelectedShapeActions";
 export * from "./sizeHelpers";
 export * from "./sortElements";
+export * from "./stickyNote";
 export * from "./store";
 export * from "./textElement";
 export * from "./textMeasurements";

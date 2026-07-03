@@ -63,6 +63,33 @@
       &.layer-ui__wrapper__footer-left--transition-bottom {
         transform: translate(0, 92px);
       }
+
+    }
+
+    .layer-ui__wrapper__footer:has(.footer-center--shape-actions) {
+      align-items: center;
+    }
+
+    .footer-center--shape-actions {
+      justify-content: center;
+      align-items: center;
+      margin-inline-end: 0;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .bottom-shape-actions-bar {
+      pointer-events: none;
+      display: flex;
+      justify-content: center;
+      max-width: 100%;
+
+      .mobile-shape-actions {
+        overflow-x: auto;
+        overflow-y: hidden;
+        scrollbar-width: thin;
+        pointer-events: var(--ui-pointerEvents);
+      }
     }
 
     .disable-zen-mode {

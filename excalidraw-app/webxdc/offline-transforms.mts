@@ -30,7 +30,23 @@ export function applyOfflineTransforms(
         .replace(
           /\s*\{appState\.openDialog\?\.name === "help" && \([\s\S]*?\)\}\n/,
           "",
-        ),
+        )
+        .replace(
+          /import \{ UserList \} from "\.\/UserList";/,
+          'import WebxdcUserList from "../../../excalidraw-app/webxdc/WebxdcUserList";',
+        )
+        .replace(/<UserList/g, "<WebxdcUserList"),
+    };
+  }
+
+  if (id.endsWith("/components/main-menu/MainMenu.tsx")) {
+    return {
+      code: code
+        .replace(
+          /import \{ UserList \} from "\.\.\/UserList";/,
+          'import WebxdcUserList from "../../../../excalidraw-app/webxdc/WebxdcUserList";',
+        )
+        .replace(/<UserList/g, "<WebxdcUserList"),
     };
   }
 
@@ -88,7 +104,7 @@ export function applyOfflineTransforms(
         "  public insertIframeElement = () => {\n    return;\n  };\n\n",
       )
       .replace(
-        /  public insertEmbeddableElement = \(\{[\s\S]*?(?=\n  private newImagePlaceholder)/,
+        /  public insertEmbeddableElement = \(\{[\s\S]*?(?=\n  public insertStickyNote)/,
         "  public insertEmbeddableElement = () => {\n    return;\n  };\n\n",
       )
       .replace(
@@ -105,6 +121,31 @@ export function applyOfflineTransforms(
       );
 
     return { code: next };
+  }
+
+  if (id.endsWith("/components/ContextMenu.tsx")) {
+    return {
+      code: code
+        .replace(
+          'import "./ContextMenu.scss";',
+          'import "./ContextMenu.scss";\nimport WebxdcContextMenuBackground from "../../../excalidraw-app/webxdc/WebxdcContextMenuBackground";',
+        )
+        .replace(
+          /const filteredItems = items\.reduce/,
+          `const isCanvasContextMenu = !items.some(
+      (item) =>
+        item && item !== CONTEXT_MENU_SEPARATOR && item.name === "cut",
+    );
+
+    const filteredItems = items.reduce`,
+        )
+        .replace(
+          /<\/ul>\s*<\/Popover>/,
+          `</ul>
+        {isCanvasContextMenu && <WebxdcContextMenuBackground />}
+      </Popover>`,
+        ),
+    };
   }
 
   if (id.endsWith("/components/BraveMeasureTextError.tsx")) {
@@ -126,10 +167,23 @@ export function applyOfflineTransforms(
   icon: HelpIconThin,
   viewMode: true,
   trackEvent: { category: "menu", action: "toggleHelpDialog" },
-  perform: (_elements, appState) => ({
-    appState: { ...appState, openDialog: null, openMenu: null, openPopup: null },
-    captureUpdate: "EVENTUALLY",
-  }),
+  perform: (_elements, appState, _, { focusContainer }) => {
+    if (appState.openDialog?.name === "help") {
+      focusContainer();
+    }
+    return {
+      appState: {
+        ...appState,
+        openDialog:
+          appState.openDialog?.name === "help"
+            ? null
+            : { name: "help" },
+        openMenu: null,
+        openPopup: null,
+      },
+      captureUpdate: CaptureUpdateAction.EVENTUALLY,
+    };
+  },
   keyTest: () => false,
 });`,
       ),

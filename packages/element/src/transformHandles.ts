@@ -14,6 +14,7 @@ import type {
 import type { Bounds } from "@excalidraw/common";
 
 import { getElementAbsoluteCoords } from "./bounds";
+import { OMIT_SIDES_FOR_STICKY_NOTE, isStickyNoteElement } from "./stickyNote";
 import {
   isElbowArrow,
   isFrameLikeElement,
@@ -306,6 +307,12 @@ export const getTransformHandles = (
   } else if (isFrameLikeElement(element)) {
     omitSides = {
       ...omitSides,
+      rotation: true,
+    };
+  } else if (isStickyNoteElement(element)) {
+    omitSides = {
+      ...omitSides,
+      ...OMIT_SIDES_FOR_STICKY_NOTE,
       rotation: true,
     };
   }

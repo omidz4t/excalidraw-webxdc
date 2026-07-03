@@ -163,7 +163,11 @@ export const getDeltaOperationsForElements = (
 
   for (let toIndex = 0; toIndex < newElements.length; toIndex++) {
     const id = newElements[toIndex].id;
-    const { index: fromIndex } = opsTracker.idMap[id];
+    const tracked = opsTracker.idMap[id];
+    if (!tracked) {
+      continue;
+    }
+    const { index: fromIndex } = tracked;
 
     if (toIndex !== fromIndex) {
       let leftSortIndex: string | null = null;
@@ -307,8 +311,10 @@ export const applyElementOperations = (
 
     const _updateYjsIndexMap = () => {
       for (let i = 0; i < yElements.length; i++) {
-        const item = yElements.get(i).get("el") as ExcalidrawElement;
-        idYjsIndexMap[item.id] = i;
+        const item = yElements.get(i)?.get("el") as ExcalidrawElement | undefined;
+        if (item?.id) {
+          idYjsIndexMap[item.id] = i;
+        }
       }
     };
 
@@ -317,7 +323,11 @@ export const applyElementOperations = (
     for (const op of operations) {
       switch (op.type) {
         case "update": {
-          yElements.get(idYjsIndexMap[op.id]).set("el", { ...op.element });
+          const index = idYjsIndexMap[op.id];
+          if (index === undefined) {
+            break;
+          }
+          yElements.get(index)?.set("el", { ...op.element });
           break;
         }
         case "append":
@@ -347,11 +357,14 @@ export const applyElementOperations = (
         case "delete":
         case "bulkDelete": {
           if (op.type === "delete") {
-            yElements.delete(idYjsIndexMap[op.id], 1);
+            const index = idYjsIndexMap[op.id];
+            if (index !== undefined) {
+              yElements.delete(index, 1);
+            }
           } else {
             const indices = op.data
               .map((entry) => idYjsIndexMap[entry.id])
-              .filter((index) => index !== undefined)
+              .filter((index): index is number => index !== undefined)
               .sort((a, b) => b - a);
             for (const index of indices) {
               yElements.delete(index, 1);
@@ -361,7 +374,11 @@ export const applyElementOperations = (
           break;
         }
         case "move": {
-          yElements.get(idYjsIndexMap[op.id]).set("pos", op.pos);
+          const index = idYjsIndexMap[op.id];
+          if (index === undefined) {
+            break;
+          }
+          yElements.get(index)?.set("pos", op.pos);
           break;
         }
       }

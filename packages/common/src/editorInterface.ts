@@ -1,4 +1,4 @@
-export type StylesPanelMode = "compact" | "full" | "mobile";
+export type StylesPanelMode = "bottom" | "compact" | "full" | "mobile";
 
 export type EditorInterface = Readonly<{
   formFactor: "phone" | "tablet" | "desktop";

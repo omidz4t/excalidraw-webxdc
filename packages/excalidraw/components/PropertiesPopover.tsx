@@ -4,7 +4,7 @@ import React, { type ReactNode } from "react";
 
 import { isInteractive } from "@excalidraw/common";
 
-import { useEditorInterface } from "./App";
+import { useEditorInterface, useStylesPanelMode } from "./App";
 import { Island } from "./Island";
 
 interface PropertiesPopoverProps {
@@ -40,8 +40,17 @@ export const PropertiesPopover = React.forwardRef<
     ref,
   ) => {
     const editorInterface = useEditorInterface();
+    const stylesPanelMode = useStylesPanelMode();
+    const isBottomStylesPanel = stylesPanelMode === "bottom";
     const isMobilePortrait =
       editorInterface.formFactor === "phone" && !editorInterface.isLandscape;
+
+    const popoverSide = isBottomStylesPanel
+      ? "top"
+      : isMobilePortrait
+      ? "bottom"
+      : "right";
+    const popoverAlign = isBottomStylesPanel || isMobilePortrait ? "center" : "start";
 
     return (
       <Popover.Portal container={container}>
@@ -49,10 +58,10 @@ export const PropertiesPopover = React.forwardRef<
           ref={ref}
           className={clsx("focus-visible-none", className)}
           data-prevent-outside-click
-          side={isMobilePortrait ? "bottom" : "right"}
-          align={isMobilePortrait ? "center" : "start"}
-          alignOffset={-16}
-          sideOffset={20}
+          side={popoverSide}
+          align={popoverAlign}
+          alignOffset={isBottomStylesPanel ? 0 : -16}
+          sideOffset={isBottomStylesPanel ? 12 : 20}
           collisionBoundary={container ?? undefined}
           style={{
             zIndex: "var(--zIndex-ui-styles-popup)",

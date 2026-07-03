@@ -33,6 +33,10 @@ import { getContainingFrame } from "@excalidraw/element";
 import { getCornerRadius, isPathALoop } from "@excalidraw/element";
 
 import { ShapeCache } from "@excalidraw/element";
+import {
+  createStickyNoteSvgElements,
+  isStickyNoteElement,
+} from "@excalidraw/element";
 
 import { getElementAbsoluteCoords } from "@excalidraw/element";
 
@@ -148,6 +152,37 @@ const renderElementToSvg = (
     case "rectangle":
     case "diamond":
     case "ellipse": {
+      if (isStickyNoteElement(element)) {
+        const nodes = createStickyNoteSvgElements(
+          element,
+          svgRoot.ownerDocument,
+          opacity,
+        );
+        for (const node of nodes) {
+          node.setAttribute(
+            "transform",
+            `translate(${offsetX || 0} ${
+              offsetY || 0
+            }) rotate(${degree} ${cx} ${cy})`,
+          );
+        }
+
+        const g = maybeWrapNodesInFrameClipPath(
+          element,
+          root,
+          nodes,
+          renderConfig.frameRendering,
+          elementsMap,
+        );
+
+        if (g) {
+          addToRoot(g, element);
+        } else {
+          nodes.forEach((node) => addToRoot(node, element));
+        }
+        break;
+      }
+
       const shape = ShapeCache.generateElementShape(element, renderConfig);
       const node = roughSVGDrawWithPrecision(
         rsvg,

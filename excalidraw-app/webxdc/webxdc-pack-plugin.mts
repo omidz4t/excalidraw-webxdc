@@ -2,6 +2,9 @@ import fs from "fs/promises";
 import path from "path";
 import type { Plugin } from "vite";
 
+import { PACKAGE_MANIFEST_FILENAME } from "./package-manifest";
+import { webxdcZipFilter } from "./vite-slim-plugin.mts";
+
 const APP_DIR = path.resolve(__dirname, "..");
 const MANIFEST = path.resolve(APP_DIR, "manifest.toml");
 const WEBXDC_STUB = path.resolve(__dirname, "webxdc-stub.js");
@@ -19,6 +22,33 @@ const resolveWebxdcVersion = async (): Promise<string> => {
 
 const manifestWithVersion = (content: string, version: string) =>
   content.replace(/^version\s*=.*/m, `version = "${version}"`);
+
+const listPackageFiles = async (
+  dir: string,
+  relative = "",
+): Promise<string[]> => {
+  const files: string[] = [];
+  const entries = await fs.readdir(dir, { withFileTypes: true });
+
+  for (const entry of entries) {
+    const relPath = relative ? `${relative}/${entry.name}` : entry.name;
+    const fullPath = path.join(dir, entry.name);
+
+    if (entry.isDirectory()) {
+      if (webxdcZipFilter(entry.name, fullPath, true)) {
+        files.push(...(await listPackageFiles(fullPath, relPath)));
+      }
+      continue;
+    }
+
+    // fileName must be the entry basename — webxdcZipFilter matches fonts by name.
+    if (webxdcZipFilter(entry.name, fullPath, false)) {
+      files.push(relPath);
+    }
+  }
+
+  return files;
+};
 
 /**
  * WebXDC requires index.html and manifest.toml at the zip root.
@@ -81,6 +111,15 @@ export function webxdcPackPlugin(enabled: boolean): Plugin {
 
         // Delta Chat only recognizes icon.png or icon.jpg at the zip root.
         await fs.copyFile(ICON, path.join(outDir, "icon.jpg"));
+
+        const packageFiles = (await listPackageFiles(outDir))
+          .filter((file) => file !== PACKAGE_MANIFEST_FILENAME)
+          .sort();
+
+        await fs.writeFile(
+          path.join(outDir, PACKAGE_MANIFEST_FILENAME),
+          JSON.stringify({ version: 1, files: packageFiles }, null, 2),
+        );
       },
     },
   };

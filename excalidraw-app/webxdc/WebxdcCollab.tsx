@@ -12,10 +12,11 @@ import {
 } from "@excalidraw/excalidraw";
 import { throttleRAF, toBrandedType } from "@excalidraw/common";
 import throttle from "lodash.throttle";
+import { useAtomValue } from "jotai";
 import { useEffect, useRef } from "react";
 import * as Y from "yjs";
 import { applyUpdateV2, mergeUpdatesV2 } from "yjs";
-import WebxdcProvider from "y-webxdc";
+import WebxdcProvider from "./webxdc-provider";
 
 import type {
   ExcalidrawImperativeAPI,
@@ -34,14 +35,21 @@ import {
 import {
   collabSyncStatusAtom,
   createWebxdcSyncBridge,
+  patchCollabSyncStatus,
   SendUpdateRejectedError,
 } from "./collab-status";
-
-import type { CollabSyncStatus } from "./collab-status";
 import { webxdcPointerUpdateRef } from "./pointer-ref";
 import { WebxdcRealtimeChannel } from "./webxdc-realtime-channel";
 
+import { seedYdocFromBootstrapIfEmpty } from "./bootstrap-scene";
+import { withFollowViewportSync } from "./follow-viewport-sync-ref";
+import { pendingFollowRequestAtom } from "./follow-request";
+import { announceJoinViewport } from "./join-viewport";
+import { mergeLocalSceneIntoYdocBeforeBinding } from "./merge-local-scene";
+import { webxdcRealtimeRef } from "./realtime-ref";
 import { getWebxdc } from "./get-webxdc";
+import { webxdcPersistRef } from "./persist-ref";
+import { autosaveToChatAtom } from "./webxdc-settings";
 import { WEBXDC_VERSION } from "./version";
 import { pickUserColor } from "./user-colors";
 import { ExcalidrawBinding } from "./y-excalidraw";
@@ -51,6 +59,19 @@ type PointerPayload = SocketUpdateDataSource["MOUSE_LOCATION"]["payload"];
 const INIT_WAIT_MS = 2_000;
 const REALTIME_YJS_ORIGIN = "webxdc-realtime-doc";
 const DEFAULT_REALTIME_MAX_BYTES = 128_000;
+
+const readyHint = (hasRealtime: boolean, autosaveToChat: boolean) => {
+  if (hasRealtime && autosaveToChat) {
+    return "Live drawing + cursors over P2P · auto-saving to chat";
+  }
+  if (hasRealtime) {
+    return "Live drawing over P2P · Ctrl+S saves to chat";
+  }
+  if (autosaveToChat) {
+    return "Drawing syncs to chat automatically (~few seconds)";
+  }
+  return "Ctrl+S saves to chat · enable realtime in Delta Chat 1.48+";
+};
 
 interface WebxdcCollabProps {
   excalidrawAPI: ExcalidrawImperativeAPI;
@@ -80,20 +101,57 @@ const waitForInitialYjsState = (
   });
 
 const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
+  const excalidrawAPIRef = useRef(excalidrawAPI);
+  excalidrawAPIRef.current = excalidrawAPI;
+
+  const autosaveToChat = useAtomValue(autosaveToChatAtom);
+  const autosaveToChatRef = useRef(autosaveToChat);
   const bindingRef = useRef<ExcalidrawBinding | null>(null);
   const providerRef = useRef<InstanceType<typeof WebxdcProvider> | null>(null);
   const realtimeRef = useRef<WebxdcRealtimeChannel | null>(null);
+  const persistIntervalRef = useRef(PERSIST_SCENE_SYNC_MS);
 
   useEffect(() => {
+    autosaveToChatRef.current = autosaveToChat;
+  }, [autosaveToChat]);
+
+  useEffect(() => {
+    const provider = providerRef.current;
+    if (!provider) {
+      return;
+    }
+
+    clearInterval(provider.autosaveLoop);
+    if (autosaveToChat) {
+      provider.autosaveLoop = setInterval(
+        () => provider.syncToChatPeers(),
+        persistIntervalRef.current,
+      );
+    }
+
+    const status = appJotaiStore.get(collabSyncStatusAtom);
+    if (status.initPhase !== "ready") {
+      return;
+    }
+    patchCollabSyncStatus({
+      hint: readyHint(status.realtimeJoined, autosaveToChat),
+    });
+  }, [autosaveToChat]);
+
+  useEffect(() => {
+    const api = excalidrawAPIRef.current;
+    if (!api) {
+      return;
+    }
+
     const hostWebxdc = getWebxdc();
     if (!hostWebxdc) {
-      appJotaiStore.set(collabSyncStatusAtom, (prev) => ({
-        ...prev,
+      patchCollabSyncStatus({
         initPhase: "error",
         hint: "window.webxdc missing after boot — reinstall the latest .xdc in Delta Chat",
         lastError:
           "Delete the old chat attachment and attach a fresh excalidraw.xdc.",
-      }));
+      });
       return;
     }
 
@@ -108,9 +166,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       colorLight: userColor.light,
     };
 
-    const setStatus = (patch: Partial<CollabSyncStatus>) => {
-      appJotaiStore.set(collabSyncStatusAtom, (prev) => ({ ...prev, ...patch }));
-    };
+    const setStatus = patchCollabSyncStatus;
 
     let sendUpdateSent = 0;
     let sendUpdateReceived = 0;
@@ -123,12 +179,13 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       hostWebxdc.sendUpdateMaxSize ?? DEFAULT_REALTIME_MAX_BYTES;
 
     const realtime = new WebxdcRealtimeChannel(
-      excalidrawAPI,
+      api,
       selfAddr,
       selfUser,
       realtimeMaxBytes,
     );
     realtimeRef.current = realtime;
+    webxdcRealtimeRef.current = realtime;
 
     setStatus({
       buildId: WEBXDC_VERSION,
@@ -169,7 +226,14 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       },
     });
 
-    const syncToChatPeers = (provider: InstanceType<typeof WebxdcProvider>) => {
+    const syncToChatPeers = (
+      provider: InstanceType<typeof WebxdcProvider>,
+      options?: { force?: boolean },
+    ) => {
+      if (!options?.force && !autosaveToChatRef.current) {
+        return;
+      }
+
       try {
         provider.syncToChatPeers();
       } catch (error) {
@@ -236,19 +300,22 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       realtimeJoined: hasRealtime,
       hint: hasRealtime
         ? "Waiting for chat history…"
-        : "Realtime off — enable in Delta Chat Advanced settings (1.48+). Drawing uses sendUpdate.",
+        : "Realtime off — enable in Delta Chat 1.48+ · Ctrl+S saves to chat",
     });
 
     const persistInterval = Math.max(
       hostWebxdc.sendUpdateInterval ?? 1000,
       PERSIST_SCENE_SYNC_MS,
     );
+    persistIntervalRef.current = persistInterval;
 
     const run = async () => {
       const provider = new WebxdcProvider({
         webxdc,
         ydoc,
-        autosaveInterval: persistInterval,
+        autosaveInterval: autosaveToChatRef.current
+          ? persistInterval
+          : undefined,
         resendAllUpdates: false,
         getEditInfo: () => ({
           document: "Excalidraw",
@@ -273,11 +340,14 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         return;
       }
 
+      await seedYdocFromBootstrapIfEmpty(yElements, yAssets, ySceneSettings);
+      mergeLocalSceneIntoYdocBeforeBinding(api, yElements, yAssets);
+
       const binding = new ExcalidrawBinding(
         yElements,
         yAssets,
         ySceneSettings,
-        excalidrawAPI,
+        api,
         {
           onSelectionChange: (selectedElementIds) => {
             realtime.updateSelection(selectedElementIds);
@@ -300,11 +370,35 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         "",
       );
 
+      const persistToChat = () => {
+        syncToChatPeers(provider, { force: true });
+        setStatus({ hint: "Saved to chat" });
+      };
+
+      webxdcPersistRef.current = persistToChat;
+
+      realtime.setGetSceneBounds(() =>
+        getVisibleSceneBounds(api.getAppState()),
+      );
+
       setStatus({
         initPhase: "ready",
-        hint: hasRealtime
-          ? "Live drawing + cursors over P2P · backup via sendUpdate"
-          : "Drawing syncs via sendUpdate (~few seconds)",
+        hint: readyHint(hasRealtime, autosaveToChatRef.current),
+      });
+
+      announceJoinViewport(api, realtime, {
+        syncFromPeers: hasRealtime,
+        applySharedViewport: (bounds) => {
+          api.updateScene({
+            appState: zoomToFitBounds({
+              appState: api.getAppState(),
+              bounds,
+              fitToViewport: true,
+              viewportZoomFactor: 1,
+            }).appState,
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+        },
       });
 
       const pendingRealtimeYjs: Uint8Array[] = [];
@@ -317,9 +411,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         const merged = mergeUpdatesV2(pendingRealtimeYjs);
         pendingRealtimeYjs.length = 0;
 
-        if (!realtime.sendDocumentUpdate(merged)) {
-          syncToChatPeers(provider);
-        }
+        realtime.sendDocumentUpdate(merged);
       }, REALTIME_DOC_MS);
 
       const flushPersist = throttle(
@@ -332,7 +424,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         if (transaction.origin !== binding) {
           return;
         }
-        // Images are too large for realtime — persist immediately
+        // Images are too large for realtime — only persist when auto-save is on
         syncToChatPeers(provider);
       });
 
@@ -347,7 +439,9 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
           flushRealtimeDoc();
         }
 
-        flushPersist();
+        if (autosaveToChatRef.current) {
+          flushPersist();
+        }
       });
 
       const onPointerUpdate = (payload: {
@@ -370,12 +464,8 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
 
       webxdcPointerUpdateRef.current = onPointerUpdate;
 
-      realtime.setGetSceneBounds(() =>
-        getVisibleSceneBounds(excalidrawAPI.getAppState()),
-      );
-
       realtime.setOnFollowersChanged((followers) => {
-        excalidrawAPI.updateScene({
+        api.updateScene({
           appState: {
             followedBy: new Set(
               [...followers].map((addr) => toBrandedType<SocketId>(addr)),
@@ -385,8 +475,12 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         });
       });
 
+      realtime.setOnFollowRequest((request) => {
+        appJotaiStore.set(pendingFollowRequestAtom, request);
+      });
+
       realtime.setViewportHandler((fromAddr, bounds) => {
-        const appState = excalidrawAPI.getAppState();
+        const appState = api.getAppState();
         const followedId = appState.userToFollow?.socketId;
 
         if (!followedId || followedId !== fromAddr) {
@@ -397,14 +491,24 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
           return;
         }
 
-        excalidrawAPI.updateScene({
-          appState: zoomToFitBounds({
+        withFollowViewportSync(() => {
+          const nextAppState = zoomToFitBounds({
             appState,
             bounds,
             fitToViewport: true,
             viewportZoomFactor: 1,
-          }).appState,
-          captureUpdate: CaptureUpdateAction.NEVER,
+          }).appState;
+
+          api.updateScene({
+            appState: nextAppState,
+            captureUpdate: CaptureUpdateAction.NEVER,
+          });
+
+          return {
+            scrollX: nextAppState.scrollX,
+            scrollY: nextAppState.scrollY,
+            zoom: nextAppState.zoom.value,
+          };
         });
       });
 
@@ -412,16 +516,14 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         if (!realtime.hasFollowers()) {
           return;
         }
-        realtime.relayViewport(
-          getVisibleSceneBounds(excalidrawAPI.getAppState()),
-        );
+        realtime.relayViewport(getVisibleSceneBounds(api.getAppState()));
       });
 
-      const unsubScroll = excalidrawAPI.onScrollChange(() => {
+      const unsubScroll = api.onScrollChange(() => {
         relayFollowedViewport();
       });
 
-      const unsubFollow = excalidrawAPI.onUserFollow((payload) => {
+      const unsubFollow = api.onUserFollow((payload) => {
         const followedAddr = payload.userToFollow.socketId as string;
         if (payload.action === "FOLLOW") {
           realtime.notifyFollow(followedAddr);
@@ -434,8 +536,8 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         isCollaborating: () => true,
         onPointerUpdate,
         startCollaboration: async () => ({
-          elements: excalidrawAPI.getSceneElementsIncludingDeleted(),
-          appState: excalidrawAPI.getAppState(),
+          elements: api.getSceneElementsIncludingDeleted(),
+          appState: api.getAppState(),
         }),
         stopCollaboration: () => {},
         syncElements: (_elements: readonly OrderedExcalidrawElement[]) => {},
@@ -459,13 +561,15 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         unsubFollow();
         flushRealtimeDoc.cancel();
         flushPersist.cancel();
+        webxdcPersistRef.current = null;
         webxdcPointerUpdateRef.current = null;
         binding.destroy();
         bindingRef.current = null;
         realtime.leave();
         realtimeRef.current = null;
+        webxdcRealtimeRef.current = null;
+        appJotaiStore.set(pendingFollowRequestAtom, null);
         clearInterval(provider.autosaveLoop);
-        syncToChatPeers(provider);
         providerRef.current = null;
         appJotaiStore.set(collabAPIAtom, null);
         appJotaiStore.set(isCollaboratingAtom, false);
@@ -482,7 +586,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       cancelled = true;
       cleanupInner?.();
     };
-  }, [excalidrawAPI]);
+  }, []);
 
   return null;
 };

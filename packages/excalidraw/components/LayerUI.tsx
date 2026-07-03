@@ -31,6 +31,7 @@ import {
   SelectedShapeActions,
   ShapesSwitcher,
   CompactShapeActions,
+  MobileShapeActions,
 } from "./Actions";
 import { LoadingMessage } from "./LoadingMessage";
 import { LockButton } from "./LockButton";
@@ -61,6 +62,7 @@ import { Island } from "./Island";
 import { JSONExportDialog } from "./JSONExportDialog";
 import { LaserPointerButton } from "./LaserPointerButton";
 import { Toast } from "./Toast";
+import { Minimap } from "./Minimap";
 
 import "./LayerUI.scss";
 import "./Toolbar.scss";
@@ -76,6 +78,8 @@ import type {
   UIAppState,
   AppClassProperties,
 } from "../types";
+
+const isWebxdcBuild = import.meta.env.VITE_APP_WEBXDC === "true";
 
 interface LayerUIProps {
   actionManager: ActionManager;
@@ -161,7 +165,9 @@ const LayerUI = ({
 }: LayerUIProps) => {
   const editorInterface = useEditorInterface();
   const stylesPanelMode = useStylesPanelMode();
-  const isCompactStylesPanel = stylesPanelMode === "compact";
+  const isBottomStylesPanel = stylesPanelMode === "bottom";
+  const isCompactStylesPanel =
+    stylesPanelMode === "compact" || isBottomStylesPanel;
   const tunnels = useInitializeTunnels();
 
   const spacing = isCompactStylesPanel
@@ -282,6 +288,46 @@ const LayerUI = ({
     );
   };
 
+  const renderBottomShapeActions = () => {
+    const shouldRenderSelectedShapeActions = showSelectedShapeActions(
+      appState,
+      elements,
+    );
+
+    if (
+      !isBottomStylesPanel ||
+      !shouldRenderSelectedShapeActions ||
+      appState.viewModeEnabled
+    ) {
+      return null;
+    }
+
+    return (
+      <div
+        className={clsx(
+          "footer-center",
+          "footer-center--shape-actions",
+          "zen-mode-transition",
+          {
+            "layer-ui__wrapper__footer-left--transition-bottom":
+              appState.zenModeEnabled,
+          },
+        )}
+      >
+        <div className="bottom-shape-actions-bar">
+          <MobileShapeActions
+            layout="bottom"
+            appState={appState}
+            elementsMap={app.scene.getNonDeletedElementsMap()}
+            renderAction={actionManager.renderAction}
+            app={app}
+            setAppState={setAppState}
+          />
+        </div>
+      </div>
+    );
+  };
+
   const renderFixedSideContainer = () => {
     const shouldRenderSelectedShapeActions = showSelectedShapeActions(
       appState,
@@ -308,7 +354,9 @@ const LayerUI = ({
                   isCompactStylesPanel,
               })}
             >
-              {shouldRenderSelectedShapeActions && renderSelectedShapeActions()}
+              {shouldRenderSelectedShapeActions &&
+                !isBottomStylesPanel &&
+                renderSelectedShapeActions()}
             </div>
             {/* in compact UI the pen mode button lives outside the toolbar, as
                 a separate floating button below the compact actions menu
@@ -316,6 +364,7 @@ const LayerUI = ({
                 actions island, i.e. when a drawing tool or elements are
                 selected */}
             {isCompactStylesPanel &&
+              !isBottomStylesPanel &&
               !appState.viewModeEnabled &&
               shouldRenderSelectedShapeActions && (
                 <PenModeButton
@@ -620,6 +669,21 @@ const LayerUI = ({
           >
             {renderWelcomeScreen && <tunnels.WelcomeScreenCenterTunnel.Out />}
             {renderFixedSideContainer()}
+            <tunnels.FooterCenterTunnel.In>
+              {renderBottomShapeActions()}
+            </tunnels.FooterCenterTunnel.In>
+            {isWebxdcBuild && appState.minimapEnabled && (
+              <Minimap
+                app={app}
+                appState={appState}
+                elements={elements}
+                elementsMap={app.scene.getNonDeletedElementsMap()}
+                setAppState={setAppState}
+                className={clsx("zen-mode-transition", {
+                  "transition-left": appState.zenModeEnabled,
+                })}
+              />
+            )}
             <Footer
               appState={appState}
               actionManager={actionManager}

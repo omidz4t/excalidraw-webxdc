@@ -1,0 +1,70 @@
+@use "../css/variables.module" as *;
+
+.excalidraw {
+  .sticky-note-stack {
+    position: relative;
+    width: var(--default-button-size);
+    height: var(--default-button-size);
+    border-radius: var(--border-radius-lg);
+    cursor: grab;
+    touch-action: none;
+    flex-shrink: 0;
+
+    @include toolbarButtonColorStates;
+
+    &:active,
+    &--dragging {
+      cursor: grabbing;
+    }
+
+    &__sheet {
+      position: absolute;
+      border-radius: 2px;
+      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+
+      &--back-2 {
+        top: 5px;
+        left: 5px;
+        right: 3px;
+        bottom: 3px;
+        background: #ffd43b;
+        transform: rotate(-4deg);
+      }
+
+      &--back-1 {
+        top: 3px;
+        left: 3px;
+        right: 4px;
+        bottom: 4px;
+        background: #ffe066;
+        transform: rotate(-2deg);
+      }
+
+      &--front {
+        top: 2px;
+        left: 2px;
+        right: 5px;
+        bottom: 5px;
+        background: #ffec99;
+        transform: rotate(1deg);
+      }
+    }
+  }
+
+  .sticky-note-ghost {
+    position: fixed;
+    pointer-events: none;
+    z-index: 10000;
+    width: 64px;
+    height: 64px;
+    background: #ffec99;
+    border-radius: 2px;
+    box-shadow: 1px 4px 8px rgba(0, 0, 0, 0.16);
+    transform: translate(-50%, -50%) rotate(1deg);
+
+    &--wide {
+      width: 128px;
+      height: 64px;
+    }
+  }
+}

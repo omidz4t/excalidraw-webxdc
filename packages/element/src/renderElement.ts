@@ -67,6 +67,7 @@ import { getContainingFrame } from "./frame";
 import { getCornerRadius } from "./utils";
 
 import { ShapeCache } from "./shape";
+import { drawStickyNoteOnCanvas, isStickyNoteElement } from "./stickyNote";
 
 import type {
   ExcalidrawElement,
@@ -396,6 +397,11 @@ const drawElementOnCanvas = (
     case "embeddable":
     case "diamond":
     case "ellipse": {
+      if (isStickyNoteElement(element)) {
+        drawStickyNoteOnCanvas(element, context, renderConfig.theme);
+        break;
+      }
+
       context.lineJoin = "round";
       context.lineCap = "round";
 

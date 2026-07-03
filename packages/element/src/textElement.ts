@@ -25,6 +25,11 @@ import { LinearElementEditor } from "./linearElementEditor";
 import { measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
 import {
+  getStickyNoteBaseFontSize,
+  isStickyNoteElement,
+  STICKY_NOTE_MIN_FONT_SIZE,
+} from "./stickyNote";
+import {
   isBoundToContainer,
   isArrowElement,
   isTextElement,
@@ -37,11 +42,117 @@ import type {
   ElementsMap,
   ExcalidrawElement,
   ExcalidrawElementType,
+  ExcalidrawRectangleElement,
   ExcalidrawTextContainer,
   ExcalidrawTextElement,
   ExcalidrawTextElementWithContainer,
   NonDeletedExcalidrawElement,
 } from "./types";
+
+export const fitStickyNoteBoundText = (
+  container: ExcalidrawRectangleElement,
+  textElement: ExcalidrawTextElement,
+  originalText: string,
+  elementsMap: ElementsMap,
+): {
+  text: string;
+  fontSize: number;
+  width: number;
+  height: number;
+  x: number;
+  y: number;
+} => {
+  const maxWidth = getBoundTextMaxWidth(container, textElement);
+  const maxHeight = getBoundTextMaxHeight(
+    container,
+    textElement as ExcalidrawTextElementWithContainer,
+  );
+  const maxFontSize = Math.max(
+    STICKY_NOTE_MIN_FONT_SIZE,
+    Math.round(getStickyNoteBaseFontSize(container)),
+  );
+
+  const measureAtFontSize = (fontSize: number) => {
+    const testElement = { ...textElement, fontSize };
+    const text = wrapText(
+      originalText,
+      getFontString(testElement),
+      maxWidth,
+    );
+    const metrics = measureText(
+      text,
+      getFontString(testElement),
+      testElement.lineHeight,
+    );
+    return { text, metrics, fontSize };
+  };
+
+  const positionAt = (
+    fontSize: number,
+    text: string,
+    width: number,
+    height: number,
+  ) => {
+    const updatedTextElement = {
+      ...textElement,
+      fontSize,
+      text,
+      width,
+      height,
+    } as ExcalidrawTextElementWithContainer;
+    return computeBoundTextPosition(container, updatedTextElement, elementsMap);
+  };
+
+  if (!originalText.trim()) {
+    const { x, y } = positionAt(maxFontSize, originalText, 0, 0);
+    return {
+      text: originalText,
+      fontSize: maxFontSize,
+      width: 0,
+      height: 0,
+      x,
+      y,
+    };
+  }
+
+  for (let fontSize = maxFontSize; fontSize >= STICKY_NOTE_MIN_FONT_SIZE; fontSize--) {
+    const { text, metrics } = measureAtFontSize(fontSize);
+    if (metrics.height <= maxHeight && metrics.width <= maxWidth) {
+      const { x, y } = positionAt(
+        fontSize,
+        text,
+        metrics.width,
+        metrics.height,
+      );
+      return {
+        text,
+        fontSize,
+        width: metrics.width,
+        height: metrics.height,
+        x,
+        y,
+      };
+    }
+  }
+
+  const { text, metrics, fontSize } = measureAtFontSize(
+    STICKY_NOTE_MIN_FONT_SIZE,
+  );
+  const { x, y } = positionAt(
+    fontSize,
+    text,
+    metrics.width,
+    metrics.height,
+  );
+  return {
+    text,
+    fontSize,
+    width: metrics.width,
+    height: metrics.height,
+    x,
+    y,
+  };
+};
 
 export const redrawTextBoundingBox = (
   textElement: ExcalidrawTextElement,
@@ -74,6 +185,17 @@ export const redrawTextBoundingBox = (
 
   boundTextUpdates.text = textElement.text;
 
+  if (container && isStickyNoteElement(container)) {
+    const fitted = fitStickyNoteBoundText(
+      container,
+      textElement,
+      textElement.originalText,
+      elementsMap,
+    );
+    scene.mutateElement(textElement, fitted);
+    return;
+  }
+
   if (container || !textElement.autoResize) {
     maxWidth = container
       ? getBoundTextMaxWidth(container, textElement)
@@ -104,7 +226,11 @@ export const redrawTextBoundingBox = (
     );
     const maxContainerWidth = getBoundTextMaxWidth(container, textElement);
 
-    if (!isArrowElement(container) && metrics.height > maxContainerHeight) {
+    if (
+      !isArrowElement(container) &&
+      !isStickyNoteElement(container) &&
+      metrics.height > maxContainerHeight
+    ) {
       const nextHeight = computeContainerDimensionForBoundText(
         metrics.height,
         container.type,
@@ -113,7 +239,10 @@ export const redrawTextBoundingBox = (
       updateOriginalContainerCache(container.id, nextHeight);
     }
 
-    if (metrics.width > maxContainerWidth) {
+    if (
+      !isStickyNoteElement(container) &&
+      metrics.width > maxContainerWidth
+    ) {
       const nextWidth = computeContainerDimensionForBoundText(
         metrics.width,
         container.type,
@@ -152,6 +281,24 @@ export const handleBindTextResize = (
   }
   resetOriginalContainerCache(container.id);
   const textElement = getBoundTextElement(container, elementsMap);
+
+  if (isStickyNoteElement(container)) {
+    if (!textElement) {
+      return;
+    }
+
+    scene.mutateElement(
+      textElement,
+      fitStickyNoteBoundText(
+        container,
+        textElement,
+        textElement.originalText,
+        elementsMap,
+      ),
+    );
+    return;
+  }
+
   if (textElement && textElement.text) {
     if (!container) {
       return;

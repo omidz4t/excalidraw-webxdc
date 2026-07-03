@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { useRef, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { Popover } from "radix-ui";
 
 import {
@@ -53,6 +53,7 @@ import { useTextEditorFocus } from "../hooks/useTextEditorFocus";
 import { actionToggleViewMode } from "../actions/actionToggleViewMode";
 
 import { getToolbarTools } from "./shapes";
+import { StickyNoteStack } from "./StickyNoteStack";
 
 import "./Actions.scss";
 
@@ -919,13 +920,16 @@ export const MobileShapeActions = ({
   renderAction,
   app,
   setAppState,
+  layout = "mobile",
 }: {
   appState: UIAppState;
   elementsMap: NonDeletedElementsMap | NonDeletedSceneElementsMap;
   renderAction: ActionManager["renderAction"];
   app: AppClassProperties;
   setAppState: React.Component<any, AppState>["setState"];
+  layout?: "mobile" | "bottom";
 }) => {
+  const isBottomLayout = layout === "bottom";
   const targetElements = getTargetElements(elementsMap, appState);
   const { container } = useExcalidrawContainer();
   const mobileActionsRef = useRef<HTMLDivElement>(null);
@@ -936,7 +940,7 @@ export const MobileShapeActions = ({
   // 7 actions + 2 for undo/redo
   const MIN_ACTIONS = 9;
 
-  const GAP = 6;
+  const GAP = isBottomLayout ? 2 : 6;
   const WIDTH = 32;
 
   const MIN_WIDTH = MIN_ACTIONS * WIDTH + (MIN_ACTIONS - 1) * GAP;
@@ -949,7 +953,11 @@ export const MobileShapeActions = ({
 
   return (
     <Island
-      className="compact-shape-actions mobile-shape-actions"
+      className={clsx(
+        "compact-shape-actions",
+        "mobile-shape-actions",
+        isBottomLayout && "mobile-shape-actions--bottom",
+      )}
       style={{
         flexDirection: "row",
         boxShadow: "none",
@@ -957,7 +965,7 @@ export const MobileShapeActions = ({
         zIndex: 2,
         backgroundColor: "transparent",
         height: WIDTH * 1.35,
-        marginBottom: 4,
+        marginBottom: isBottomLayout ? 0 : 4,
         alignItems: "center",
         gap: GAP,
         pointerEvents: "none",
@@ -969,7 +977,7 @@ export const MobileShapeActions = ({
           display: "flex",
           flexDirection: "row",
           gap: GAP,
-          flex: 1,
+          flex: isBottomLayout ? undefined : 1,
         }}
       >
         {canChangeStrokeColor(appState, targetElements) && (
@@ -1030,30 +1038,32 @@ export const MobileShapeActions = ({
           setAppState={setAppState}
           container={container}
           app={app}
-          showDuplicate={!showDuplicateOutside}
-          showDelete={!showDeleteOutside}
+          showDuplicate={isBottomLayout ? true : !showDuplicateOutside}
+          showDelete={isBottomLayout ? true : !showDeleteOutside}
         />
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          gap: GAP,
-        }}
-      >
-        <div className="compact-action-item">{renderAction("undo")}</div>
-        <div className="compact-action-item">{renderAction("redo")}</div>
-        {showDuplicateOutside && (
-          <div className="compact-action-item">
-            {renderAction("duplicateSelection")}
-          </div>
-        )}
-        {showDeleteOutside && (
-          <div className="compact-action-item">
-            {renderAction("deleteSelectedElements")}
-          </div>
-        )}
-      </div>
+      {!isBottomLayout && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "row",
+            gap: GAP,
+          }}
+        >
+          <div className="compact-action-item">{renderAction("undo")}</div>
+          <div className="compact-action-item">{renderAction("redo")}</div>
+          {showDuplicateOutside && (
+            <div className="compact-action-item">
+              {renderAction("duplicateSelection")}
+            </div>
+          )}
+          {showDeleteOutside && (
+            <div className="compact-action-item">
+              {renderAction("deleteSelectedElements")}
+            </div>
+          )}
+        </div>
+      )}
     </Island>
   );
 };
@@ -1072,7 +1082,8 @@ export const ShapesSwitcher = ({
   const [isExtraToolsMenuOpen, setIsExtraToolsMenuOpen] = useState(false);
   const stylesPanelMode = useStylesPanelMode();
   const isFullStylesPanel = stylesPanelMode === "full";
-  const isCompactStylesPanel = stylesPanelMode === "compact";
+  const isCompactStylesPanel =
+    stylesPanelMode === "compact" || stylesPanelMode === "bottom";
 
   // a pen detected on a tool button's pointer-down, to be applied (enabling
   // pen mode) only after the tap's `change` has committed — see the tool
@@ -1164,54 +1175,56 @@ export const ShapesSwitcher = ({
           }
 
           return (
-            <ToolButton
-              className={clsx("Shape", { fillable })}
-              key={value}
-              type="radio"
-              icon={icon}
-              checked={activeTool.type === value}
-              name="editor-current-shape"
-              title={`${capitalizeString(label)} — ${shortcut}`}
-              keyBindingLabel={keybindingLabel}
-              aria-label={capitalizeString(label)}
-              aria-keyshortcuts={shortcut}
-              data-testid={`toolbar-${value}`}
-              onPointerDown={({ pointerType }) => {
-                // Detect the pen here (pointerType is reliable on pointer-down)
-                // but DON'T enable pen mode yet: calling setState mid-gesture
-                // re-renders the controlled radio and, on iOS/iPadOS, aborts
-                // the ensuing click so the tool isn't selected on the first pen
-                // tap. Defer it until the tap's `change` has committed (below).
-                if (!app.state.penDetected && pointerType === "pen") {
-                  pendingPenDetectionRef.current = true;
-                }
-
-                if (value === "selection") {
-                  if (app.state.activeTool.type === "selection") {
-                    app.setActiveTool({ type: "lasso" });
-                  } else {
-                    app.setActiveTool({ type: "selection" });
+            <Fragment key={value}>
+              <ToolButton
+                className={clsx("Shape", { fillable })}
+                type="radio"
+                icon={icon}
+                checked={activeTool.type === value}
+                name="editor-current-shape"
+                title={`${capitalizeString(label)} — ${shortcut}`}
+                keyBindingLabel={keybindingLabel}
+                aria-label={capitalizeString(label)}
+                aria-keyshortcuts={shortcut}
+                data-testid={`toolbar-${value}`}
+                onPointerDown={({ pointerType }) => {
+                  // Detect the pen here (pointerType is reliable on pointer-down)
+                  // but DON'T enable pen mode yet: calling setState mid-gesture
+                  // re-renders the controlled radio and, on iOS/iPadOS, aborts
+                  // the ensuing click so the tool isn't selected on the first pen
+                  // tap. Defer it until the tap's `change` has committed (below).
+                  if (!app.state.penDetected && pointerType === "pen") {
+                    pendingPenDetectionRef.current = true;
                   }
-                }
-              }}
-              onChange={() => {
-                if (app.state.activeTool.type !== value) {
-                  trackEvent("toolbar", value, "ui");
-                }
-                app.setActiveTool({ type: value });
 
-                // Apply the pen detection captured on pointer-down now that the
-                // tool is selected. rAF keeps the resulting re-render out of the
-                // `change` event itself. We rely on the pointer-down detection
-                // rather than this handler's pointerType because the latter is
-                // unreliable on iOS (its backing ref is cleared before the
-                // delayed click fires).
-                if (pendingPenDetectionRef.current) {
-                  pendingPenDetectionRef.current = false;
-                  requestAnimationFrame(() => app.togglePenMode(true));
-                }
-              }}
-            />
+                  if (value === "selection") {
+                    if (app.state.activeTool.type === "selection") {
+                      app.setActiveTool({ type: "lasso" });
+                    } else {
+                      app.setActiveTool({ type: "selection" });
+                    }
+                  }
+                }}
+                onChange={() => {
+                  if (app.state.activeTool.type !== value) {
+                    trackEvent("toolbar", value, "ui");
+                  }
+                  app.setActiveTool({ type: value });
+
+                  // Apply the pen detection captured on pointer-down now that the
+                  // tool is selected. rAF keeps the resulting re-render out of the
+                  // `change` event itself. We rely on the pointer-down detection
+                  // rather than this handler's pointerType because the latter is
+                  // unreliable on iOS (its backing ref is cleared before the
+                  // delayed click fires).
+                  if (pendingPenDetectionRef.current) {
+                    pendingPenDetectionRef.current = false;
+                    requestAnimationFrame(() => app.togglePenMode(true));
+                  }
+                }}
+              />
+              {value === "text" && <StickyNoteStack app={app} />}
+            </Fragment>
           );
         },
       )}

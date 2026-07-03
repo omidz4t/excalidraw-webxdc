@@ -1,5 +1,7 @@
 import { atom } from "jotai";
 
+import { appJotaiStore } from "../app-jotai";
+
 import type {
   ReceivedStatusUpdate,
   SendingStatusUpdate,
@@ -34,6 +36,20 @@ export type CollabSyncStatus = {
   propagationError: string;
   propagationFailureReason: PropagationFailureReason | "";
   hasPendingPropagation: boolean;
+};
+
+export const patchCollabSyncStatus = (
+  patch: Partial<CollabSyncStatus>,
+): void => {
+  appJotaiStore.set(collabSyncStatusAtom, (prev) => {
+    const hasChange = (Object.keys(patch) as (keyof CollabSyncStatus)[]).some(
+      (key) => prev[key] !== patch[key],
+    );
+    if (!hasChange) {
+      return prev;
+    }
+    return { ...prev, ...patch };
+  });
 };
 
 export const collabSyncStatusAtom = atom<CollabSyncStatus>({

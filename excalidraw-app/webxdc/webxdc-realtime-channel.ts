@@ -57,13 +57,42 @@ type UnfolMessage = {
   f: string;
 };
 
+type RfolMessage = {
+  t: "rfol";
+  a: string;
+  f: string;
+  n: string;
+};
+
+/** Joiner asks existing peers for a shared viewport. */
+type JreqMessage = {
+  t: "jreq";
+  a: string;
+};
+
+/** Directed viewport for a joining peer (from the elected host). */
+type VjMessage = {
+  t: "vj";
+  a: string;
+  f: string;
+  b: SceneBounds;
+};
+
 type RealtimeMessage =
   | PosMessage
   | SelMessage
   | DocMessage
   | VpMessage
   | FolMessage
-  | UnfolMessage;
+  | UnfolMessage
+  | RfolMessage
+  | JreqMessage
+  | VjMessage;
+
+export type FollowRequestPayload = {
+  fromAddr: string;
+  fromName: string;
+};
 
 export type SceneBounds = [number, number, number, number];
 
@@ -106,7 +135,9 @@ export class WebxdcRealtimeChannel {
   private onJoinError?: (message: string) => void;
   private onYjsUpdate?: (data: Uint8Array) => void;
   private onViewport?: (from: string, bounds: SceneBounds) => void;
+  private onJoinViewport?: (bounds: SceneBounds) => void;
   private onFollowersChanged?: (followers: Set<string>) => void;
+  private onFollowRequest?: (request: FollowRequestPayload) => void;
   private getSceneBounds?: () => SceneBounds;
   private followers = new Set<string>();
   private maxBytes = 128_000;
@@ -151,8 +182,16 @@ export class WebxdcRealtimeChannel {
     this.onViewport = handler;
   }
 
+  setJoinViewportHandler(handler: (bounds: SceneBounds) => void) {
+    this.onJoinViewport = handler;
+  }
+
   setOnFollowersChanged(onFollowersChanged: (followers: Set<string>) => void) {
     this.onFollowersChanged = onFollowersChanged;
+  }
+
+  setOnFollowRequest(onFollowRequest: (request: FollowRequestPayload) => void) {
+    this.onFollowRequest = onFollowRequest;
   }
 
   setGetSceneBounds(getter: () => SceneBounds) {
@@ -173,12 +212,36 @@ export class WebxdcRealtimeChannel {
     this.sendRealtimeJson({ t: "unfol", a: this.selfAddr, f: followedAddr });
   }
 
+  /** Ask a peer to follow this user (they see a prompt on their screen). */
+  requestFollow(targetAddr: string) {
+    if (!this.channel || targetAddr === this.selfAddr) {
+      return false;
+    }
+
+    this.sendRealtimeJson({
+      t: "rfol",
+      a: this.selfAddr,
+      f: targetAddr,
+      n: this.selfUser.name ?? this.selfAddr,
+    });
+    return true;
+  }
+
   /** Broadcast visible canvas bounds to peers who follow this user. */
   relayViewport(bounds: SceneBounds) {
     if (!this.channel || !this.followers.size) {
       return;
     }
     this.sendRealtimeJson({ t: "vp", a: this.selfAddr, b: bounds });
+  }
+
+  /** Ask online peers to share their viewport (used when joining live). */
+  requestJoinViewport() {
+    if (!this.channel) {
+      return false;
+    }
+    this.sendRealtimeJson({ t: "jreq", a: this.selfAddr });
+    return true;
   }
 
   join(webxdc: { joinRealtimeChannel?: () => RealtimeListener }): boolean {
@@ -211,16 +274,12 @@ export class WebxdcRealtimeChannel {
       return;
     }
 
-    const existing = this.peers.get(payload.addr);
     this.peers.set(payload.addr, {
       user: {
         name: payload.name,
         color: payload.color,
         colorLight: payload.colorLight,
       },
-      pointer: existing?.pointer,
-      button: existing?.button,
-      selectedElementIds: existing?.selectedElementIds,
       lastSeen: Date.now(),
     });
     this.pushCollaborators();
@@ -299,7 +358,9 @@ export class WebxdcRealtimeChannel {
     this.followers.clear();
     this.onYjsUpdate = undefined;
     this.onViewport = undefined;
+    this.onJoinViewport = undefined;
     this.onFollowersChanged = undefined;
+    this.onFollowRequest = undefined;
     this.getSceneBounds = undefined;
     this.api.updateScene({ collaborators: new Map() });
   }
@@ -365,6 +426,35 @@ export class WebxdcRealtimeChannel {
         return;
       }
       this.onViewport?.(msg.a, msg.b);
+      return;
+    }
+
+    if (msg.t === "rfol") {
+      if (msg.f !== this.selfAddr || !msg.a || msg.a === this.selfAddr) {
+        return;
+      }
+      this.onFollowRequest?.({
+        fromAddr: msg.a,
+        fromName: msg.n || msg.a,
+      });
+      return;
+    }
+
+    if (msg.t === "jreq") {
+      if (!msg.a || msg.a === this.selfAddr) {
+        return;
+      }
+      if (this.shouldShareJoinViewport(msg.a)) {
+        this.sendJoinViewport(msg.a);
+      }
+      return;
+    }
+
+    if (msg.t === "vj") {
+      if (msg.f !== this.selfAddr || !msg.a || !msg.b?.length) {
+        return;
+      }
+      this.onJoinViewport?.(msg.b);
       return;
     }
 
@@ -449,6 +539,35 @@ export class WebxdcRealtimeChannel {
 
   private sendJson(msg: PosMessage | SelMessage) {
     this.sendRealtimeJson(msg);
+  }
+
+  /**
+   * One existing peer shares their viewport with a joiner. The peer with the
+   * lowest addr (excluding the joiner) is elected so only one person responds.
+   */
+  private shouldShareJoinViewport(requesterAddr: string) {
+    if (!this.channel || !this.getSceneBounds) {
+      return false;
+    }
+
+    const candidates = [this.selfAddr, ...this.peers.keys()]
+      .filter((addr) => addr !== requesterAddr)
+      .sort();
+
+    return candidates[0] === this.selfAddr;
+  }
+
+  private sendJoinViewport(targetAddr: string) {
+    if (!this.getSceneBounds) {
+      return;
+    }
+
+    this.sendRealtimeJson({
+      t: "vj",
+      a: this.selfAddr,
+      f: targetAddr,
+      b: this.getSceneBounds(),
+    });
   }
 
   private pushCollaborators() {

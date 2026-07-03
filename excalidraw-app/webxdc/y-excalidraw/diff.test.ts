@@ -56,6 +56,60 @@ const seedYElements = (
   }, ORIGIN);
 };
 
+describe("applyElementOperations safety", () => {
+  it("skips corrupt yjs entries without throwing", () => {
+    const ydoc = new Y.Doc();
+    const yElements = ydoc.getArray<Y.Map<unknown>>("elements");
+
+    yElements.doc!.transact(() => {
+      yElements.push([new Y.Map(Object.entries({ pos: "a0" }))]);
+      yElements.push([
+        new Y.Map(
+          Object.entries({
+            pos: "a1",
+            el: { ...makeElement("ok") },
+          }),
+        ),
+      ]);
+    }, ORIGIN);
+
+    expect(() => {
+      applyElementOperations(
+        yElements,
+        [
+          {
+            type: "update",
+            id: "ok",
+            index: 0,
+            element: { ...makeElement("ok", 2) },
+          },
+        ],
+        ORIGIN as never,
+      );
+    }).not.toThrow();
+  });
+
+  it("skips update operations for elements missing from yjs", () => {
+    const ydoc = new Y.Doc();
+    const yElements = ydoc.getArray<Y.Map<unknown>>("elements");
+
+    expect(() => {
+      applyElementOperations(
+        yElements,
+        [
+          {
+            type: "update",
+            id: "missing",
+            index: 0,
+            element: makeElement("missing"),
+          },
+        ],
+        ORIGIN as never,
+      );
+    }).not.toThrow();
+  });
+});
+
 describe("applyElementOperations bulkDelete", () => {
   it("deletes multiple non-consecutive elements without Length exceeded", () => {
     const ydoc = new Y.Doc();

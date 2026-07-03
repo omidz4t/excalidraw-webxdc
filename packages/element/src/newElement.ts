@@ -22,7 +22,8 @@ import {
   getResizedElementAbsoluteCoords,
 } from "./bounds";
 import { newElementWith } from "./mutateElement";
-import { getBoundTextMaxWidth } from "./textElement";
+import { fitStickyNoteBoundText, getBoundTextMaxWidth } from "./textElement";
+import { isStickyNoteElement } from "./stickyNote";
 import { normalizeText, measureText } from "./textMeasurements";
 import { wrapText } from "./textWrapping";
 
@@ -41,6 +42,7 @@ import type {
   ExcalidrawFreeDrawElement,
   FontFamilyValues,
   ExcalidrawTextContainer,
+  ExcalidrawRectangleElement,
   ExcalidrawFrameElement,
   ExcalidrawEmbeddableElement,
   ExcalidrawMagicFrameElement,
@@ -427,6 +429,16 @@ export const refreshTextDimensions = (
   if (textElement.isDeleted) {
     return;
   }
+
+  if (container && isStickyNoteElement(container)) {
+    return fitStickyNoteBoundText(
+      container as ExcalidrawRectangleElement,
+      textElement,
+      text,
+      elementsMap,
+    );
+  }
+
   if (container || !textElement.autoResize) {
     text = wrapText(
       text,

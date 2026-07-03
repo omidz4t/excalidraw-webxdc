@@ -43,6 +43,7 @@ import { getWrappedTextLines } from "@excalidraw/element";
 import {
   isArrowElement,
   isBoundToContainer,
+  isStickyNoteElement,
   isTextElement,
 } from "@excalidraw/element";
 
@@ -324,7 +325,11 @@ export const textWysiwyg = ({
         );
 
         // autogrow container height if text exceeds
-        if (!isArrowElement(container) && height > maxHeight) {
+        if (
+          !isArrowElement(container) &&
+          !isStickyNoteElement(container) &&
+          height > maxHeight
+        ) {
           const targetContainerHeight = computeContainerDimensionForBoundText(
             height,
             container.type,
@@ -337,6 +342,7 @@ export const textWysiwyg = ({
           // autoshrink container height until original container height
           // is reached when text is removed
           !isArrowElement(container) &&
+          !isStickyNoteElement(container) &&
           container.height > originalContainerData.height &&
           height < maxHeight
         ) {
@@ -878,7 +884,8 @@ export const textWysiwyg = ({
     const inShapeActionsMenu =
       (target instanceof HTMLElement || target instanceof SVGElement) &&
       (!!(target as Element).closest(`.${CLASSES.SHAPE_ACTIONS_MENU}`) ||
-        !!(target as Element).closest(".compact-shape-actions-island"));
+        !!(target as Element).closest(".compact-shape-actions-island") ||
+        !!(target as Element).closest(".bottom-shape-actions-bar"));
 
     setTimeout(() => {
       // If we interacted within shape actions menu or its popovers/triggers,
@@ -937,7 +944,8 @@ export const textWysiwyg = ({
         (event.target.closest(
           `.${CLASSES.SHAPE_ACTIONS_MENU}, .${CLASSES.ZOOM_ACTIONS}`,
         ) ||
-          event.target.closest(".compact-shape-actions-island")) &&
+          event.target.closest(".compact-shape-actions-island") ||
+          event.target.closest(".bottom-shape-actions-bar")) &&
         !isWritableElement(event.target)) ||
       isPropertiesTrigger ||
       isPropertiesContent

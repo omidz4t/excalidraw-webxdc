@@ -61,6 +61,10 @@ import {
 } from "./typeChecks";
 
 import { isInGroup } from "./groups";
+import {
+  constrainStickyNoteResize,
+  isStickyNoteElement,
+} from "./stickyNote";
 
 import type { Scene } from "./Scene";
 
@@ -80,6 +84,7 @@ import type {
   ElementsMap,
   ExcalidrawElbowArrowElement,
   ExcalidrawArrowElement,
+  ExcalidrawRectangleElement,
 } from "./types";
 import type { ElementUpdate } from "./mutateElement";
 
@@ -763,23 +768,25 @@ export const resizeSingleElement = (
       };
     }
     if (shouldMaintainAspectRatio) {
-      const updatedElement = {
-        ...latestElement,
-        width: nextWidth,
-        height: nextHeight,
-      };
+      if (!isStickyNoteElement(latestElement)) {
+        const updatedElement = {
+          ...latestElement,
+          width: nextWidth,
+          height: nextHeight,
+        };
 
-      const nextFont = measureFontSizeFromWidth(
-        boundTextElement,
-        elementsMap,
-        getBoundTextMaxWidth(updatedElement, boundTextElement),
-      );
-      if (nextFont === null) {
-        return;
+        const nextFont = measureFontSizeFromWidth(
+          boundTextElement,
+          elementsMap,
+          getBoundTextMaxWidth(updatedElement, boundTextElement),
+        );
+        if (nextFont === null) {
+          return;
+        }
+        boundTextFont = {
+          fontSize: nextFont.size,
+        };
       }
-      boundTextFont = {
-        fontSize: nextFont.size,
-      };
     } else {
       const minWidth = getApproxMinLineWidth(
         getFontString(boundTextElement),
@@ -921,6 +928,21 @@ export const resizeSingleElement = (
       shouldMaintainAspectRatio,
     );
 
+    if (isStickyNoteElement(origElement) && isStickyNoteElement(latestElement)) {
+      const { nextWidth: constrainedWidth, nextHeight: constrainedHeight } =
+        constrainStickyNoteResize(
+          origElement as ExcalidrawRectangleElement,
+          latestElement.width,
+          latestElement.height,
+        );
+      const width = Math.abs(constrainedWidth);
+      const height = Math.abs(constrainedHeight);
+
+      if (latestElement.width !== width || latestElement.height !== height) {
+        scene.mutateElement(latestElement, { width, height });
+      }
+    }
+
     updateBoundElements(latestElement, scene);
   }
 };
@@ -1011,6 +1033,10 @@ const getNextSingleWidthAndHeightFromPointer = (
       nextWidth = origElement.width * ratio * Math.sign(nextWidth);
       nextHeight = origElement.height * ratio * Math.sign(nextHeight);
     }
+  }
+
+  if (isStickyNoteElement(origElement)) {
+    return constrainStickyNoteResize(origElement, nextWidth, nextHeight);
   }
 
   return {

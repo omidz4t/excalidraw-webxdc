@@ -195,6 +195,31 @@
   overflow: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
+
+  &--bottom {
+    justify-content: flex-start;
+    width: auto;
+    max-width: 100%;
+    gap: 0.25rem;
+
+    .compact-action-item {
+      min-height: 2rem;
+    }
+
+    // tablet: still compact, slightly more gap
+    @media (min-width: 600px) {
+      gap: 0.125rem;
+    }
+
+    // desktop / large tablet: tight single-row strip aligned with footer zoom
+    @media (min-width: 900px) {
+      gap: 0;
+
+      .compact-action-item {
+        min-height: unset;
+      }
+    }
+  }
 }
 
 .shape-actions-theme-scope {

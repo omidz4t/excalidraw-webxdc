@@ -1,0 +1,20 @@
+.excalidraw {
+  .minimap {
+    position: absolute;
+    left: 1rem;
+    bottom: calc(1rem + 3.25rem);
+    z-index: 1;
+    pointer-events: none;
+    border-radius: var(--border-radius-lg);
+    border: 1px solid var(--default-border-color);
+    background-color: var(--island-bg-color);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+
+    &__canvas {
+      display: block;
+      pointer-events: var(--ui-pointerEvents);
+      cursor: pointer;
+    }
+  }
+}

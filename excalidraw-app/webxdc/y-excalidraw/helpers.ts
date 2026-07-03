@@ -1,6 +1,38 @@
 import type { ExcalidrawElement } from "@excalidraw/element/types";
 import * as Y from "yjs";
 
+import type { LastKnownOrderedElement } from "./diff";
+
+const compareFractionalPos = (left: string, right: string) =>
+  left > right ? 1 : left < right ? -1 : 0;
+
+export const getYjsElementEntry = (
+  map: Y.Map<unknown> | undefined,
+): ExcalidrawElement | null => {
+  const el = map?.get("el") as ExcalidrawElement | undefined;
+  return el?.id ? el : null;
+};
+
+export const lastKnownElementsFromYArray = (
+  yArray: Y.Array<Y.Map<unknown>>,
+): LastKnownOrderedElement[] => {
+  return yArray
+    .toArray()
+    .map((map) => {
+      const el = getYjsElementEntry(map);
+      if (!el) {
+        return null;
+      }
+      return {
+        id: el.id,
+        version: el.version,
+        pos: (map.get("pos") as string) ?? el.index ?? "",
+      };
+    })
+    .filter((entry): entry is LastKnownOrderedElement => entry !== null)
+    .sort((a, b) => compareFractionalPos(a.pos, b.pos));
+};
+
 export const moveArrayItem = <T>(arr: T[], from: number, to: number, inPlace = true) => {
   if (!inPlace) {
     arr = [...arr];
@@ -41,10 +73,12 @@ export const areElementsSame = (
 export const yjsToExcalidraw = (yArray: Y.Array<Y.Map<any>>): ExcalidrawElement[] => {
   return yArray
     .toArray()
-    .sort((a, b) => {
-      const key1 = a.get("pos") as string;
-      const key2 = b.get("pos") as string;
-      return key1 > key2 ? 1 : key1 < key2 ? -1 : 0;
-    })
-    .map((x) => x.get("el"));
+    .sort((a, b) =>
+      compareFractionalPos(
+        (a.get("pos") as string) ?? "",
+        (b.get("pos") as string) ?? "",
+      ),
+    )
+    .map((map) => getYjsElementEntry(map))
+    .filter((el): el is ExcalidrawElement => el !== null);
 };
