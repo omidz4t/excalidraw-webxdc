@@ -1,3 +1,10 @@
+## [1.0.1](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.0...v1.0.1) (2026-07-04)
+
+
+### Bug Fixes
+
+* remove .envs ([db39ebb](https://github.com/omidz4t/excalidraw-webxdc/commit/db39ebbae02247c77c685982757ca021d0b09823))
+
 # 1.0.0 (2026-07-03)
 
 
