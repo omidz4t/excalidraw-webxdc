@@ -8,28 +8,16 @@ import {
   IV_LENGTH_BYTES,
 } from "@excalidraw/excalidraw/data/encryption";
 import { serializeAsJSON } from "@excalidraw/excalidraw/data/json";
-import { isInitializedImageElement } from "@excalidraw/element";
 import { t } from "@excalidraw/excalidraw/i18n";
 import { bytesToHexString } from "@excalidraw/common";
 
 import type { ImportedDataState } from "@excalidraw/excalidraw/data/types";
 import type {
   ExcalidrawElement,
-  FileId,
   OrderedExcalidrawElement,
 } from "@excalidraw/element/types";
-import type {
-  AppState,
-  BinaryFileData,
-  BinaryFiles,
-} from "@excalidraw/excalidraw/types";
-import {
-  FILE_UPLOAD_MAX_BYTES,
-  ROOM_ID_BYTES,
-} from "../app_constants";
-
-import { encodeFilesForUpload } from "./FileManager";
-import { saveFilesToFirebase } from "./firebase";
+import type { AppState, BinaryFiles } from "@excalidraw/excalidraw/types";
+import { ROOM_ID_BYTES } from "../app_constants";
 
 import type { SocketUpdateDataSource } from "../collab/socket-types";
 
@@ -194,19 +182,6 @@ export const exportToBackend = async (
   );
 
   try {
-    const filesMap = new Map<FileId, BinaryFileData>();
-    for (const element of elements) {
-      if (isInitializedImageElement(element) && files[element.fileId]) {
-        filesMap.set(element.fileId, files[element.fileId]);
-      }
-    }
-
-    const filesToUpload = await encodeFilesForUpload({
-      files: filesMap,
-      encryptionKey,
-      maxBytes: FILE_UPLOAD_MAX_BYTES,
-    });
-
     const response = await fetch(BACKEND_V2_POST, {
       method: "POST",
       body: payload.buffer,
@@ -217,14 +192,7 @@ export const exportToBackend = async (
       // We need to store the key (and less importantly the id) as hash instead
       // of queryParam in order to never send it to the server
       url.hash = `json=${json.id},${encryptionKey}`;
-      const urlString = url.toString();
-
-      await saveFilesToFirebase({
-        prefix: `/files/shareLinks/${json.id}`,
-        files: filesToUpload,
-      });
-
-      return { url: urlString, errorMessage: null };
+      return { url: url.toString(), errorMessage: null };
     } else if (json.error_class === "RequestTooLargeError") {
       return {
         url: null,

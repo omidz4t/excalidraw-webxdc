@@ -541,7 +541,7 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         }),
         stopCollaboration: () => {},
         syncElements: (_elements: readonly OrderedExcalidrawElement[]) => {},
-        fetchImageFilesFromFirebase: async ({ elements }) => ({
+        fetchImageFiles: async ({ elements }) => ({
           loadedFiles: [],
           erroredFiles: new Map(),
           elements,

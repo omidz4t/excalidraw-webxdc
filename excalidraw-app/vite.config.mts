@@ -113,27 +113,6 @@ export default defineConfig(({ command }) => {
           ),
         },
         {
-          find: "firebase/app",
-          replacement: path.resolve(
-            __dirname,
-            "./webxdc/stubs/firebase-stub.ts",
-          ),
-        },
-        {
-          find: "firebase/firestore",
-          replacement: path.resolve(
-            __dirname,
-            "./webxdc/stubs/firebase-stub.ts",
-          ),
-        },
-        {
-          find: "firebase/storage",
-          replacement: path.resolve(
-            __dirname,
-            "./webxdc/stubs/firebase-stub.ts",
-          ),
-        },
-        {
           find: "socket.io-client",
           replacement: path.resolve(
             __dirname,

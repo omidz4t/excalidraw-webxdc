@@ -22,7 +22,7 @@ export interface CollabAPI {
   }>;
   stopCollaboration: (keepRemoteState?: boolean) => void;
   syncElements: (elements: readonly OrderedExcalidrawElement[]) => void;
-  fetchImageFilesFromFirebase: (opts: {
+  fetchImageFiles: (opts: {
     elements: readonly OrderedExcalidrawElement[];
     forceFetchFiles?: boolean;
   }) => Promise<{
