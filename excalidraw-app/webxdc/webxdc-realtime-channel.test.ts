@@ -1,5 +1,8 @@
+import { fromUint8Array, toUint8Array } from "js-base64";
 import { describe, expect, it, vi } from "vitest";
+import * as Y from "yjs";
 
+import { encodeSyncStep1, processSyncMessage } from "./yjs-realtime-sync";
 import { WebxdcRealtimeChannel } from "./webxdc-realtime-channel";
 
 describe("WebxdcRealtimeChannel follow requests", () => {
@@ -134,6 +137,59 @@ describe("WebxdcRealtimeChannel follow requests", () => {
       .onRealtimeData(payload);
 
     expect(onJoinViewport).toHaveBeenCalledWith(bounds);
+  });
+
+  it("replies to broadcast syn with a directed SyncStep2", () => {
+    const api = { updateScene: vi.fn(), getAppState: () => ({}) };
+    const existing = new Y.Doc();
+    existing.getArray("elements").push([
+      new Y.Map(Object.entries({ id: "live-edit" })),
+    ]);
+
+    const channel = new WebxdcRealtimeChannel(
+      api as never,
+      "host-addr",
+      { name: "Host" },
+    );
+
+    const sent: unknown[] = [];
+    channel.join({
+      joinRealtimeChannel: () => ({
+        setListener: vi.fn(),
+        send: (payload: Uint8Array) => {
+          sent.push(JSON.parse(new TextDecoder().decode(payload)));
+        },
+        leave: vi.fn(),
+      }),
+    });
+
+    channel.setSyncMessageHandler((data) =>
+      processSyncMessage(existing, data, "test"),
+    );
+
+    const joiner = new Y.Doc();
+    const step1 = encodeSyncStep1(joiner);
+    const payload = new TextEncoder().encode(
+      JSON.stringify({
+        t: "syn",
+        a: "joiner-addr",
+        d: fromUint8Array(step1),
+      }),
+    );
+
+    (channel as unknown as { onRealtimeData: (data: Uint8Array) => void })
+      .onRealtimeData(payload);
+
+    expect(sent).toHaveLength(1);
+    expect(sent[0]).toMatchObject({
+      t: "syn",
+      a: "host-addr",
+      f: "joiner-addr",
+    });
+
+    const reply = sent[0] as { d: string };
+    processSyncMessage(joiner, toUint8Array(reply.d), "test");
+    expect(joiner.getArray("elements").length).toBe(1);
   });
 
   it("ignores follow requests for other peers", () => {

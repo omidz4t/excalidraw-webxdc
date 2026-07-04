@@ -53,6 +53,10 @@ import { autosaveToChatAtom } from "./webxdc-settings";
 import { WEBXDC_VERSION } from "./version";
 import { pickUserColor } from "./user-colors";
 import { ExcalidrawBinding } from "./y-excalidraw";
+import {
+  encodeSyncStep1,
+  processSyncMessage,
+} from "./yjs-realtime-sync";
 
 type PointerPayload = SocketUpdateDataSource["MOUSE_LOCATION"]["payload"];
 
@@ -259,6 +263,20 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       setStatus({ yjsElementCount: yElements.length });
     };
 
+    const requestP2PDocumentSync = () => {
+      if (!realtime.isAvailable) {
+        return;
+      }
+
+      const step1 = encodeSyncStep1(ydoc);
+      if (!realtime.sendSyncMessage(step1)) {
+        const provider = providerRef.current;
+        if (provider) {
+          syncToChatPeers(provider, { force: true });
+        }
+      }
+    };
+
     realtime.setYjsHandler((data) => {
       try {
         applyUpdateV2(ydoc, data, REALTIME_YJS_ORIGIN);
@@ -266,6 +284,19 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
       } catch {
         setStatus({ lastError: "Ignored corrupt realtime document update" });
       }
+    });
+    realtime.setSyncMessageHandler((data) => {
+      try {
+        const reply = processSyncMessage(ydoc, data, REALTIME_YJS_ORIGIN);
+        updateElementCount();
+        return reply;
+      } catch {
+        setStatus({ lastError: "Ignored corrupt realtime sync message" });
+        return null;
+      }
+    });
+    realtime.setOnDocumentSyncRequest(() => {
+      requestP2PDocumentSync();
     });
     realtime.setOnJoinError((message) => {
       setStatus({ lastError: message, realtimeJoined: false });
@@ -340,8 +371,21 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         return;
       }
 
+      if (hasRealtime) {
+        requestP2PDocumentSync();
+      }
+
       await seedYdocFromBootstrapIfEmpty(yElements, yAssets, ySceneSettings);
-      mergeLocalSceneIntoYdocBeforeBinding(api, yElements, yAssets);
+      const mergedLocalScene = mergeLocalSceneIntoYdocBeforeBinding(
+        api,
+        yElements,
+        yAssets,
+      );
+      updateElementCount();
+
+      if (hasRealtime && (mergedLocalScene || yElements.length > 0)) {
+        requestP2PDocumentSync();
+      }
 
       const binding = new ExcalidrawBinding(
         yElements,
@@ -411,7 +455,9 @@ const WebxdcCollab = ({ excalidrawAPI }: WebxdcCollabProps) => {
         const merged = mergeUpdatesV2(pendingRealtimeYjs);
         pendingRealtimeYjs.length = 0;
 
-        realtime.sendDocumentUpdate(merged);
+        if (!realtime.sendDocumentUpdate(merged)) {
+          syncToChatPeers(provider);
+        }
       }, REALTIME_DOC_MS);
 
       const flushPersist = throttle(

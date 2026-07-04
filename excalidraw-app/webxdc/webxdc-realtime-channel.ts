@@ -39,6 +39,14 @@ type DocMessage = {
   d: string;
 };
 
+/** Yjs sync protocol (SyncStep1/2) wrapped as base64 — see yjs-realtime-sync.ts */
+type SynMessage = {
+  t: "syn";
+  a: string;
+  f?: string;
+  d: string;
+};
+
 type VpMessage = {
   t: "vp";
   a: string;
@@ -82,6 +90,7 @@ type RealtimeMessage =
   | PosMessage
   | SelMessage
   | DocMessage
+  | SynMessage
   | VpMessage
   | FolMessage
   | UnfolMessage
@@ -134,6 +143,11 @@ export class WebxdcRealtimeChannel {
   private onPeersChanged?: (count: number) => void;
   private onJoinError?: (message: string) => void;
   private onYjsUpdate?: (data: Uint8Array) => void;
+  private onSyncMessage?: (
+    data: Uint8Array,
+    fromAddr: string,
+  ) => Uint8Array | null;
+  private onDocumentSyncRequest?: () => void;
   private onViewport?: (from: string, bounds: SceneBounds) => void;
   private onJoinViewport?: (bounds: SceneBounds) => void;
   private onFollowersChanged?: (followers: Set<string>) => void;
@@ -176,6 +190,53 @@ export class WebxdcRealtimeChannel {
   setYjsHandler(handler: (data: Uint8Array) => void) {
     this.onYjsUpdate = handler;
     this.flushPendingDocUpdates();
+  }
+
+  setSyncMessageHandler(
+    handler: (data: Uint8Array, fromAddr: string) => Uint8Array | null,
+  ) {
+    this.onSyncMessage = handler;
+  }
+
+  setOnDocumentSyncRequest(handler: () => void) {
+    this.onDocumentSyncRequest = handler;
+  }
+
+  /** Broadcast SyncStep1 to the mesh (new joiner or peer discovery). */
+  requestDocumentSync() {
+    this.onDocumentSyncRequest?.();
+  }
+
+  /**
+   * Send a Yjs sync-protocol payload. Broadcast when `targetAddr` is omitted;
+   * otherwise direct the reply (SyncStep2) at one peer.
+   */
+  sendSyncMessage(data: Uint8Array, targetAddr?: string) {
+    if (!this.channel || !data.byteLength) {
+      return false;
+    }
+
+    const msg: SynMessage = {
+      t: "syn",
+      a: this.selfAddr,
+      d: fromUint8Array(data),
+    };
+    if (targetAddr) {
+      msg.f = targetAddr;
+    }
+
+    const payload = encodeJson(msg);
+    if (payload.byteLength > this.maxBytes) {
+      return false;
+    }
+
+    try {
+      this.channel.send(payload);
+      this.onDocumentSent?.();
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   setViewportHandler(handler: (from: string, bounds: SceneBounds) => void) {
@@ -265,6 +326,7 @@ export class WebxdcRealtimeChannel {
       CURSOR_SEND_INTERVAL_MS,
     );
     this.staleTimer = setInterval(() => this.removeStalePeers(), 2_000);
+    this.onDocumentSyncRequest?.();
 
     return true;
   }
@@ -283,6 +345,7 @@ export class WebxdcRealtimeChannel {
       lastSeen: Date.now(),
     });
     this.pushCollaborators();
+    this.onDocumentSyncRequest?.();
   }
 
   updatePointer(
@@ -357,6 +420,8 @@ export class WebxdcRealtimeChannel {
     this.peers.clear();
     this.followers.clear();
     this.onYjsUpdate = undefined;
+    this.onSyncMessage = undefined;
+    this.onDocumentSyncRequest = undefined;
     this.onViewport = undefined;
     this.onJoinViewport = undefined;
     this.onFollowersChanged = undefined;
@@ -395,6 +460,27 @@ export class WebxdcRealtimeChannel {
         this.deliverDocumentUpdate(toUint8Array(msg.d));
       } catch {
         // ignore corrupt payloads
+      }
+      return;
+    }
+
+    if (msg.t === "syn") {
+      if (!msg.a || msg.a === this.selfAddr || !msg.d) {
+        return;
+      }
+      if (msg.f && msg.f !== this.selfAddr) {
+        return;
+      }
+
+      try {
+        const data = toUint8Array(msg.d);
+        const reply = this.onSyncMessage?.(data, msg.a);
+        if (reply?.byteLength) {
+          this.sendSyncMessage(reply, msg.a);
+        }
+        this.onDocumentReceived?.();
+      } catch {
+        // ignore corrupt sync payloads
       }
       return;
     }
