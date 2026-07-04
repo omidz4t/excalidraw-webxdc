@@ -1,3 +1,10 @@
+## [1.0.2](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.1...v1.0.2) (2026-07-04)
+
+
+### Bug Fixes
+
+* remove firebase codes ([042908d](https://github.com/omidz4t/excalidraw-webxdc/commit/042908d69584adb16e34c9d70cc5fb178951e3a3))
+
 ## [1.0.1](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.0...v1.0.1) (2026-07-04)
 
 
