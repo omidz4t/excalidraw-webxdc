@@ -1,5 +1,5 @@
 import path from "path";
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import svgrPlugin from "vite-plugin-svgr";
 import { ViteEjsPlugin } from "vite-plugin-ejs";
@@ -15,25 +15,17 @@ import {
   webxdcSlimPlugin,
   webxdcZipFilter,
 } from "./webxdc/vite-slim-plugin.mts";
-export default defineConfig(({ mode, command }) => {
-  // To load .env variables
-  const envVars = loadEnv(mode, `../`);
-  const isWebxdcBuild =
-    process.env.VITE_APP_WEBXDC === "true" ||
-    envVars.VITE_APP_WEBXDC === "true";
-  const webxdcVersion =
-    process.env.WEBXDC_VERSION || envVars.WEBXDC_VERSION || "dev";
+export default defineConfig(({ command }) => {
+  const isWebxdcBuild = process.env.VITE_APP_WEBXDC === "true";
+  const webxdcVersion = process.env.WEBXDC_VERSION || "dev";
   // https://vitejs.dev/config/
   return {
     base: isWebxdcBuild && command === "build" ? "./" : undefined,
     server: {
-      port: Number(envVars.VITE_APP_PORT || 3000),
+      port: Number(process.env.VITE_APP_PORT || 3000),
       open: !isWebxdcBuild,
       ...(isWebxdcBuild ? { strictPort: true } : {}),
     },
-    // We need to specify the envDir since now there are no
-    //more located in parallel with the vite.config.ts file but in parent dir
-    envDir: "../",
     resolve: {
       alias: [
         ...(isWebxdcBuild
@@ -330,11 +322,12 @@ export default defineConfig(({ mode, command }) => {
             checker({
               typescript: true,
               eslint:
-                envVars.VITE_APP_ENABLE_ESLINT === "false"
+                process.env.VITE_APP_ENABLE_ESLINT === "false"
                   ? undefined
                   : { lintCommand: 'eslint "./**/*.{js,ts,tsx}"' },
               overlay: {
-                initialIsOpen: envVars.VITE_APP_COLLAPSE_OVERLAY === "false",
+                initialIsOpen:
+                  process.env.VITE_APP_COLLAPSE_OVERLAY === "false",
                 badgeStyle: "margin-bottom: 4rem; margin-left: 1rem",
               },
             }),
@@ -348,7 +341,7 @@ export default defineConfig(({ mode, command }) => {
         registerType: "autoUpdate",
         devOptions: {
           /* set this flag to true to enable in Development mode */
-          enabled: envVars.VITE_APP_ENABLE_PWA === "true",
+          enabled: process.env.VITE_APP_ENABLE_PWA === "true",
         },
 
         workbox: {

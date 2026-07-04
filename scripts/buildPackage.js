@@ -5,17 +5,9 @@ const { pathToFileURL } = require("url");
 const { build } = require("esbuild");
 const { sassPlugin } = require("esbuild-sass-plugin");
 
-const { parseEnvVariables } = require("../packages/excalidraw/env.cjs");
-
 const ENV_VARS = {
-  development: {
-    ...parseEnvVariables(`${__dirname}/../.env.development`),
-    DEV: true,
-  },
-  production: {
-    ...parseEnvVariables(`${__dirname}/../.env.production`),
-    PROD: true,
-  },
+  development: { DEV: true },
+  production: { PROD: true },
 };
 
 // Resolve a relative path from the source file's directory
