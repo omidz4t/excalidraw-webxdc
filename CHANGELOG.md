@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.3...v1.1.0) (2026-07-05)
+
+
+### Features
+
+* add the help functionality ([1912959](https://github.com/omidz4t/excalidraw-webxdc/commit/19129593b691ecf9ac8773da3b0388839ceb01a7))
+
 ## [1.0.3](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.2...v1.0.3) (2026-07-04)
 
 
