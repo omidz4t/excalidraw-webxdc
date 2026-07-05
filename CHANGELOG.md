@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.2...v1.0.3) (2026-07-04)
+
+
+### Bug Fixes
+
+* resolve the first page issue ([34f98bd](https://github.com/omidz4t/excalidraw-webxdc/commit/34f98bd439f9dbfc68b429169f919671dfb019be))
+
 ## [1.0.2](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.1...v1.0.2) (2026-07-04)
 
 
