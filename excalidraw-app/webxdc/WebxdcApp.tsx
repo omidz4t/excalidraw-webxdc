@@ -145,10 +145,10 @@ const WebxdcWrapper = () => {
       >
         <WebxdcLoadingOverlay />
         <WebxdcFollowRequestDialog />
-        <WebxdcHelpDialog />
         <WebxdcMainMenu />
         {excalidrawAPI && <WebxdcCollab excalidrawAPI={excalidrawAPI} />}
       </Excalidraw>
+      <WebxdcHelpDialog />
     </div>
   );
 };

@@ -157,36 +157,50 @@ export function applyOfflineTransforms(
     };
   }
 
+  if (id.endsWith("/components/footer/Footer.tsx")) {
+    return {
+      code: code
+        .replace(/import \{ actionShortcuts \} from "\.\.\/\.\.\/actions";\n/, "")
+        .replace(
+          /import \{ HelpButton \} from "\.\.\/HelpButton";\n/,
+          `import { HelpButton } from "../HelpButton";\nimport { openWebxdcHelp } from "../../../../excalidraw-app/webxdc/webxdc-help-state";\n`,
+        )
+        .replace(
+          /onClick=\{\(\) => actionManager\.executeAction\(actionShortcuts\)\}/,
+          "onClick={() => openWebxdcHelp()}",
+        ),
+    };
+  }
+
   if (id.endsWith("/actions/actionMenu.tsx")) {
     return {
-      code: code.replace(
-        /export const actionShortcuts = register\(\{[\s\S]*?\}\);/,
-        `export const actionShortcuts = register({
+      code: code
+        .replace(
+          /import \{ register \} from "\.\/register";\n/,
+          `import { register } from "./register";\nimport { toggleWebxdcHelp } from "../../../excalidraw-app/webxdc/webxdc-help-state";\n`,
+        )
+        .replace(
+          /export const actionShortcuts = register\(\{[\s\S]*?\}\);/,
+          `export const actionShortcuts = register({
   name: "toggleShortcuts",
   label: "welcomeScreen.defaults.helpHint",
   icon: HelpIconThin,
   viewMode: true,
   trackEvent: { category: "menu", action: "toggleHelpDialog" },
-  perform: (_elements, appState, _, { focusContainer }) => {
-    if (appState.openDialog?.name === "help") {
-      focusContainer();
-    }
+  perform: (_elements, appState) => {
+    toggleWebxdcHelp();
     return {
       appState: {
         ...appState,
-        openDialog:
-          appState.openDialog?.name === "help"
-            ? null
-            : { name: "help" },
         openMenu: null,
         openPopup: null,
       },
       captureUpdate: CaptureUpdateAction.EVENTUALLY,
     };
   },
-  keyTest: () => false,
+  keyTest: (event) => event.key === KEYS.QUESTION_MARK,
 });`,
-      ),
+        ),
     };
   }
 

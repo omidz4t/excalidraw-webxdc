@@ -14,7 +14,7 @@ const OFFLINE_STUBS: Array<{ match: RegExp; stub: string }> = [
   { match: /PublishLibrary$/, stub: "null-component.tsx" },
   { match: /LibraryMenuBrowseButton$/, stub: "null-component.tsx" },
   { match: /\/analytics$/, stub: "analytics-stub.ts" },
-  { match: /HelpDialog$/, stub: "null-component.tsx" },
+  { match: /\/HelpDialog$/, stub: "null-component.tsx" },
   { match: /element\/src\/embeddable/, stub: "embed-stub.ts" },
 ];
 
@@ -46,7 +46,7 @@ const SOURCE_STUBS: Array<{ match: RegExp; stub: string }> = [
 const STRIP_SCSS_PATTERNS = [
   /CommandPalette\.scss$/,
   /welcome-screen\//,
-  /HelpDialog\.scss$/,
+  /packages\/excalidraw\/.*\/HelpDialog\.scss$/,
   /TTDDialog/,
   /LibraryMenu\.scss$/,
   /LibraryUnit\.scss$/,
@@ -240,6 +240,8 @@ const PURGE_SAFELIST = {
     /^ToolPopover/,
     /^main-menu/,
     /^MainMenu/,
+    /^webxdc-help/,
+    /^webxdc-follow-request/,
     /^confirm-dialog/,
     /^active/,
     /^selected/,

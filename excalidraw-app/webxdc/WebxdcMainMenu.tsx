@@ -7,6 +7,7 @@ import {
   autosaveToChatAtom,
   saveWebxdcAutosaveSetting,
 } from "./webxdc-settings";
+import { openWebxdcHelp } from "./webxdc-help-state";
 import {
   exportSceneToFile,
   importSceneViaWebxdc,
@@ -133,6 +134,7 @@ const WebxdcMainMenu = () => {
         {autosaveToChat ? "✓ Auto-save to chat" : "Auto-save to chat"}
       </MainMenu.Item>
       <MainMenu.Separator />
+      <MainMenu.Item onSelect={() => openWebxdcHelp()}>Help</MainMenu.Item>
       <MainMenu.DefaultItems.ToggleTheme allowSystemTheme={false} />
       <WebxdcCanvasBackground />
     </MainMenu>
