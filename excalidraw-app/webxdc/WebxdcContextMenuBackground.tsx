@@ -3,16 +3,17 @@ import { actionChangeViewBackgroundColor } from "@excalidraw/excalidraw/actions"
 import {
   useAppProps,
   useExcalidrawActionManager,
+  useExcalidrawAppState,
 } from "@excalidraw/excalidraw/components/App";
 import { TopPicks } from "@excalidraw/excalidraw/components/ColorPicker/TopPicks";
-import { useUIAppState } from "@excalidraw/excalidraw/context/ui-appState";
 import { useI18n } from "@excalidraw/excalidraw/i18n";
 
 import "./WebxdcContextMenuBackground.scss";
 
+// ContextMenu mounts outside LayerUI (no UIAppStateContext) — use App tree state.
 const WebxdcContextMenuBackground = () => {
   const { t } = useI18n();
-  const appState = useUIAppState();
+  const appState = useExcalidrawAppState();
   const actionManager = useExcalidrawActionManager();
   const appProps = useAppProps();
 
