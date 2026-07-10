@@ -1,3 +1,10 @@
+## [1.1.1](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.1.0...v1.1.1) (2026-07-10)
+
+
+### Bug Fixes
+
+* avoid null viewModeEnabled crash in canvas context menu ([0fecd27](https://github.com/omidz4t/excalidraw-webxdc/commit/0fecd27be5e0b033decd95e862face792c1477db))
+
 # [1.1.0](https://github.com/omidz4t/excalidraw-webxdc/compare/v1.0.3...v1.1.0) (2026-07-05)
 
 
